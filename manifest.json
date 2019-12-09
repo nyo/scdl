@@ -1,0 +1,23 @@
+{
+	"manifest_version": 2,
+	"name": "SoundCloud Downloader",
+	"version": "1.0",
+	"description": "Add-on that helps downloading tracks on SoundCloud as mp3, with metadata.",
+	"homepage_url": "https://github.com/nyo/scdl",
+	"icons": {
+		"48": "icons/icon-48.png",
+		"64": "icons/icon-64.png",
+		"96": "icons/icon-96.png",
+		"128": "icons/icon-128.png"
+	},
+	"permissions": [
+		"*://*.soundcloud.com/*",
+		"*://*.sndcdn.com/*",
+		"webRequest"
+	],
+	"content_scripts": [{
+		"matches": ["*://*.soundcloud.com/*"],
+		"js": ["index.js", "lib/browser-id3-writer.js", "lib/FileSaver.min.js"],
+		"run_at": "document_idle"
+	}]
+}
