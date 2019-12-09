@@ -21,5 +21,5 @@ It uses 2 libraries, [browser-id3-writer](https://github.com/egoroof/browser-id3
 
 > The way the program look up for the track url & client_id is not perfect and could be subject to errors.
 > While testing, I did not find any, but please open an issue or report it if you do!
-<br>
-Happy digging!
+
+*Happy digging!*
