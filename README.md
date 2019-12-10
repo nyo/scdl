@@ -1,9 +1,9 @@
 ## SoundCloud Downloader
 
-This Firefox Add-on adds a **download button** under SoundCloud tracks.
+This Firefox Add-on adds an instant download button under SoundCloud tracks.
 
 #### Get the extension on Mozilla add-ons website!
-https://addons.mozilla.org/en-US/firefox/addon/scdl/
+https://addons.mozilla.org/firefox/addon/scdl
 
 #### Features
 - download any SoundCloud track in mp3 (128kbps) format
