@@ -209,7 +209,7 @@ const insertButtons = () => {
 const getClientID = async () => {
 
 	const scripts = document.getElementsByTagName("script");
-	const url = Array.from(scripts).map(s => s.src).filter(s => s && s.match(/sndcdn.com\/assets\/49/g))[0];
+	const url = Array.from(scripts).map(s => s.src).filter(s => s && s.match(/sndcdn.com\/assets\/50/g))[0];
 
 	try {
 
