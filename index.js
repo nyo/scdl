@@ -1,5 +1,5 @@
 window.BASE_URL = "https://api-v2.soundcloud.com";
-window.CLIENT_ID = undefined;
+window.CLIENT_ID = null;
 window.ELEMENTS = [];
 window.LAST_URL = "";
 window.TRACKS_COUNTER = 0;
@@ -66,7 +66,7 @@ const tagAndDownload = async (metadata, mp3ArrayBuffer, artworkArrayBuffer) => {
 
 const resolveTrack = async (track_url) => {
 
-	const url = `${BASE_URL}/resolve?url=${track_url}&client_id=${CLIENT_ID}`;
+	const url = `${BASE_URL}/resolve?url=${track_url}&client_id=${window.CLIENT_ID}`;
 	logger(3, "resolveTrack", `Downloading "${url}" ...`);
 
 	try {
@@ -81,7 +81,7 @@ const resolveTrack = async (track_url) => {
 			"genre": data1.genre,
 			"comment": data1.permalink_url,
 			"artwork_url": (data1.artwork_url || data1.user.avatar_url).replace(/large/ig, "t500x500"),
-			"stream_url": `${data1.media.transcodings[1].url}?client_id=${CLIENT_ID}` // selects "progressive" format.protocol
+			"stream_url": `${data1.media.transcodings[1].url}?client_id=${window.CLIENT_ID}` // selects "progressive" format.protocol
 		};
 		logger(2, "resolveTrack", JSON.stringify(metadata, null, 4));
 
@@ -209,16 +209,27 @@ const insertButtons = () => {
 const getClientID = async () => {
 
 	const scripts = document.getElementsByTagName("script");
-	const url = Array.from(scripts).map(s => s.src).filter(s => s && s.match(/sndcdn.com\/assets\/50/g))[0];
+	const urls = Array.from(scripts).reduce((urls, url) => {
+		if (url.src.match(/sndcdn.com\/assets\/[0-9][0-9]*/g))
+			urls.push(url.src);
+		return urls;
+	}, []);
 
 	try {
 
 		/* get custom client_id for the user's session */
-		const response = await fetch(url);
-		const data = await response.text();
-		CLIENT_ID = data.match(new RegExp(",client_id:\"(.*)\",env:\"production\""));
-		CLIENT_ID = CLIENT_ID.filter(str => str.length === 32)[0];
-		logger(2, "getClientID", `Got client_id: '${CLIENT_ID}'`);
+		for (const url in urls) {
+			logger(2, "getClientID", `fetching: '${urls[url]}'`);
+			let response = await fetch(urls[url]);
+			let data = await response.text();
+			window.CLIENT_ID = data.match(new RegExp(",client_id:\"(.*)\",env:\"production\""));
+			if (window.CLIENT_ID) {
+				window.CLIENT_ID = window.CLIENT_ID.filter(str => str.length === 32)[0];
+				break;
+			}
+		}
+
+		logger(2, "getClientID", `Got client_id: '${window.CLIENT_ID}'`);
 
 		/* now that the id has been retrieved, insert download button(s) */
 		insertButtons();
