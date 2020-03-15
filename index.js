@@ -15,7 +15,7 @@ const watchNewTracks = setInterval(function() {
 	window.LAST_URL = document.URL;
 }, 1000);
 
-const logger = (_level, _function, _details) => {
+function logger(_level, _function, _details) {
 
 	const logging = [
 		{ "level": 0, "word": "UNKNOWN"	, "function": console.log	},
@@ -36,7 +36,7 @@ const logger = (_level, _function, _details) => {
 
 };
 
-const tagAndDownload = async (metadata, mp3ArrayBuffer, artworkArrayBuffer) => {
+async function tagAndDownload(metadata, mp3ArrayBuffer, artworkArrayBuffer) {
 
 	/* write id3 tags */
 	const writer = new ID3Writer(mp3ArrayBuffer);
@@ -64,57 +64,62 @@ const tagAndDownload = async (metadata, mp3ArrayBuffer, artworkArrayBuffer) => {
 
 };
 
-const resolveTrack = async (track_url) => {
+async function resolveTrack(track_url) {
 
-	const url = `${BASE_URL}/resolve?url=${track_url}&client_id=${window.CLIENT_ID}`;
+	const url = `${window.BASE_URL}/resolve?url=${track_url}&client_id=${window.CLIENT_ID}`;
 	logger(3, "resolveTrack", `Downloading "${url}" ...`);
 
 	try {
 
 		/* get track data (informations, artwork, stream url) */
-		const response1 = await fetch(url);
-		const data1 = await response1.json();
+		const track_metadata = await fetch(url);
+		const { user, title, created_at, genre,
+			permalink_url, artwork_url, media } = await track_metadata.json();
+
+		const transcoding_metadata = media.transcodings.find((transcoding) => transcoding.format.protocol === "progressive");
+		if (!transcoding_metadata) throw "cannot download this track (invalid transcoding)";
+
 		const metadata = {
-			"artist": data1.user.username,
-			"title": data1.title,
-			"year": data1.created_at.split("-")[0], // get only year from date
-			"genre": data1.genre,
-			"comment": data1.permalink_url,
-			"artwork_url": (data1.artwork_url || data1.user.avatar_url).replace(/large/ig, "t500x500"),
-			"stream_url": `${data1.media.transcodings[1].url}?client_id=${window.CLIENT_ID}` // selects "progressive" format.protocol
+			"artist": user.username,
+			"title": title,
+			"year": created_at.split("-")[0], // get only year from date
+			"genre": genre,
+			"comment": permalink_url,
+			"artwork_url": (artwork_url || user.avatar_url).replace(/large/ig, "t500x500"),
+			"stream_url": `${transcoding_metadata.url}?client_id=${window.CLIENT_ID}`
 		};
 		logger(2, "resolveTrack", JSON.stringify(metadata, null, 4));
 
 		/* get mp3 (128kbps) direct url */
-		const response2 = await fetch(metadata.stream_url);
-		const data2 = await response2.json();
-		logger(2, "resolveTrack", JSON.stringify(data2, null, 4));
+		const mp3_data = await fetch(metadata.stream_url);
+		const { url: mp3_url } = await mp3_data.json();
+		logger(2, "resolveTrack", JSON.stringify(mp3_url, null, 4));
 
 		/* download mp3 & store it in a buffer */
-		const response3 = await fetch(data2.url);
-		const mp3ArrayBuffer = await response3.arrayBuffer();
+		const mp3 = await fetch(mp3_url);
+		const mp3ArrayBuffer = await mp3.arrayBuffer();
 
 		/* download artwork & store it in a buffer */
-		const response4 = await fetch(metadata.artwork_url);
-		const artworkArrayBuffer = await response4.arrayBuffer();
+		const artwork = await fetch(metadata.artwork_url);
+		const artworkArrayBuffer = await artwork.arrayBuffer();
 
 		tagAndDownload(metadata, mp3ArrayBuffer, artworkArrayBuffer);
 
 	} catch (error) {
 
-		logger(5, "resolveTrack", error.message);
+		logger(5, "resolveTrack", error.message ? error.message : error);
 
 	}
 
 }
 
-const isLinkElem = (className) => {
+function isLinkElem(className) {
 	return className.indexOf("playableTile__mainHeading") !== -1
 		|| className.indexOf("soundTitle__title") !== -1
 		|| className.indexOf("trackItem__trackTitle") !== -1;
 }
 
-const getTrackURI = (element) => {
+function getTrackURI(element) {
 
 	try {
 
@@ -156,13 +161,13 @@ const getTrackURI = (element) => {
 
 };
 
-const insertButtons = () => {
+function insertButtons() {
 
 	logger(2, "insertButtons", "! INSERTING NEW BUTTONS !");
 
 	/* check if the button should be medium depending on the page */
 	const url = document.URL.split("/");
-	const reserved_strings = ["tracks", "sets", "albums", "reposts", "toptracks"];
+	const reserved_strings = ["tracks", "sets", "albums", "reposts", "toptracks", "popular-tracks"];
 	const should_be_medium = url[4] && url[4].length > 0
 		&& !reserved_strings.includes(url[4]) ? true : false;
 
@@ -180,7 +185,7 @@ const insertButtons = () => {
 			/* get all parent nodes */
 			if (elems[e] && typeof elems[e].className === "string" && elems[e].className.indexOf("sc-button-group") > -1) {
 				/* check for duplicates (prevents multiple buttons) */
-				if (ELEMENTS.includes(elems[e].parentNode)) continue;
+				if (window.ELEMENTS.includes(elems[e].parentNode)) continue;
 				/* clone and append a download button */
 				let kiddies = Array.from(elems[e].childNodes);
 				kiddies = kiddies.filter((k) => k.className);
@@ -192,7 +197,7 @@ const insertButtons = () => {
 					getTrackURI(this);
 				}, true);
 				elems[e].appendChild(downloadButtonClone);
-				ELEMENTS.push(elems[e].parentNode);
+				window.ELEMENTS.push(elems[e].parentNode);
 			}
 		}
 
@@ -202,11 +207,11 @@ const insertButtons = () => {
 
 	}
 
-	// console.debug(ELEMENTS);
+	// console.debug(window.ELEMENTS);
 
 }
 
-const getClientID = async () => {
+async function getClientID() {
 
 	const scripts = document.getElementsByTagName("script");
 	const urls = Array.from(scripts).reduce((urls, url) => {
