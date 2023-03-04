@@ -19,7 +19,7 @@ const watchNewTracksInterval = setInterval(() => {
           || nbInsertedButtons !== window.SCDL__TRACK_COUNT)
     ) {
       insertDownloadButtons();
-      window.SCDL__TRACK_COUNT = nbShareButtons;
+      window.SCDL__TRACK_COUNT = nbInsertedButtons;
       window.SCDL__LAST_URL = currentUrl;
     }
   } catch (err) {
