@@ -4,8 +4,9 @@ window.SCDL__TRACK_COUNT = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
- * Check every second for new loaded tracks
- * in the page to add download button to
+ * Check every second for new loaded tracks in the page.
+ * Add download button if the page url has changed, or if new tracks
+ * have been loaded in the page.
  */
 const watchNewTracksInterval = setInterval(() => {
   try {
@@ -34,68 +35,171 @@ window.addEventListener("beforeunload", () => {
 });
 
 /**
- * Write metadatas to track buffer and save it as mp3 file.
- * @param {object} metadata 
- * @param {ArrayBuffer} trackBuffer 
- * @param {ArrayBuffer} artworkBuffer 
+ * Write metadatas to track buffer, then save it as mp3 file.
+ * @param {ArrayBuffer} trackBuffer
+ * @param {ArrayBuffer} artworkBuffer
+ * @param {object} metadata
  */
-const tagAndSaveTrack = (metadata, trackBuffer, artworkBuffer) => {
+const tagAndSaveTrack = (trackBuffer, artworkBuffer, metadata) => {
   const writer = new ID3Writer(trackBuffer);
 
   writer
     .setFrame("TPE1", [metadata.user?.username])
-		.setFrame("TIT2", metadata.title)
-		.setFrame("TYER", metadata.created_at?.split("-")[0]) // keep only year from date
-		.setFrame("TCON", [metadata.genre])
-		.setFrame("WOAS", metadata.permalink_url)
-		.setFrame("APIC", {
-			type: 3,
-			data: artworkBuffer,
-			description: "Track artwork"
+    .setFrame("TIT2", metadata.title)
+    .setFrame("TYER", metadata.created_at?.split("-")[0]) // keep only year from date
+    .setFrame("TCON", [metadata.genre])
+    .setFrame("WOAS", metadata.permalink_url)
+    .setFrame("APIC", {
+      type: 3,
+      data: artworkBuffer,
+      description: "Track artwork"
 	  });
 
   writer.addTag();
-  
+
   saveAs(
     writer.getBlob(),
     `${metadata.user?.username} - ${metadata.title}.mp3`.toLowerCase()
   );
 
-	writer.revokeURL(); // memory control
+  writer.revokeURL(); // memory control
 };
 
 /**
- * Find a working transcoding for the track and return it.
- * @param {object[]} transcodings 
+ * Converts blob to arrayBuffer (for `resolveHlsBuffer`).
+ * @param {Blob} blob
+ * @returns {Promise<ArrayBuffer>}
+ */
+const blobToArrayBuffer = (blob) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+
+    reader.readAsArrayBuffer(blob);
+    reader.onload = () => { resolve(reader.result); };
+  });
+};
+
+/**
+ * Resolve track with 'hls' transcoding format.
+ * @param {string} trackUrl
+ * @param {ArrayBuffer} artworkBuffer
+ * @param {object} metadata
+ */
+const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
+  const audioElement = new Audio();
+  const mediaSource = new MediaSource();
+
+  const handleMediaSourceOpen = async (event) => {
+    event.preventDefault();
+
+    const trackRes = await fetch(trackUrl);
+
+    if (trackRes.status !== 200) {
+      throw new Error("Error while fetching 'hls' track URL...");
+    }
+
+    const trackData = await trackRes.text();
+
+    const mp3Urls = trackData
+      .split("\n")
+      .filter((line) => line && !line.startsWith("#"))
+      .map((line) => new URL(line, trackUrl).toString());
+
+    Promise.all(
+      mp3Urls.map(
+        (url) => fetch(url).then((res) => res.arrayBuffer())
+      )
+    )
+      .then(async (arrayBuffers) => {
+        const blob = new Blob(arrayBuffers);
+        const trackArrayBuffer = await blobToArrayBuffer(blob);
+
+        tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
+      });
+  };
+
+  audioElement.src = URL.createObjectURL(mediaSource);
+  mediaSource.addEventListener("sourceopen", handleMediaSourceOpen);
+};
+
+/**
+ * Resolve track with 'progressive' transcoding format.
+ * @param {string} trackUrl
+ * @param {ArrayBuffer} artworkBuffer
+ * @param {object} metadata
+ */
+const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
+  const trackRes = await fetch(trackUrl);
+
+  if (trackRes.status !== 200) {
+    throw new Error("Error while fetching 'progressive' track URL...");
+  }
+
+  const trackBuffer = await trackRes.arrayBuffer();
+
+  tagAndSaveTrack(trackBuffer, artworkBuffer, metadata);
+};
+
+/**
+ * Resolve track artwork URL (or user avatar URL) to an ArrayBuffer.
+ * @param {string} artworkUrl
+ * @returns {Promise<ArrayBuffer>}
+ */
+const resolveArtworkBuffer = async (artworkUrl) => {
+  const artworkRes = await fetch(artworkUrl.replace(/large/ig, "t500x500"));
+
+  if (artworkRes.status !== 200) {
+    throw new Error("Error while fetching artwork URL...");
+  }
+
+  return artworkRes.arrayBuffer();
+};
+
+/**
+ * Find a working transcoding for the track and return its data.
+ * @param {object[]} transcodings
  * @returns {Promise<any>}
  */
-const getStreamData = async (transcodings) => {
-  // prioritizes 'progressive' transcoding format
-  transcodings.sort((a, b) => {
-    if (a.format.protocol === "progressive") return -1;
-    if (b.format.protocol === "progressive") return 1;
-    return 0;
-  });
+const fetchStreamData = async (transcodings) => {
+  // keep only 'audio/mpeg' mime types
+  // & prioritizes 'progressive' transcoding format
+  const filteredTranscodings = transcodings.reduce((acc, t) => {
+    if (t.format.mime_type === "audio/mpeg") {
+      if (t.format.protocol === "progressive") {
+        acc.unshift(t);
+      } else {
+        acc.push(t);
+      }
+    }
 
-  for (const transcoding of transcodings) {
-    console.info(`Trying with '${transcoding.format?.protocol}' transcoding ('${transcoding.format?.mime_type}' MIME type)...`);
+    return acc;
+  }, []);
+
+  for (const transcoding of filteredTranscodings) {
+    console.info(
+      `Trying with '${transcoding.format?.protocol}' transcoding ('${transcoding.format?.mime_type}' MIME type)...`
+    );
 
     const streamUrl = new URL(transcoding.url);
-    
+
     streamUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
 
     const streamRes = await fetch(streamUrl.toString());
 
-    if (streamRes.status === 200) return streamRes.json();
+    if (streamRes.status === 200) {
+      const streamData = await streamRes.json();
+
+      return { ...streamData, ...transcoding.format };
+    }
   }
 
-  throw new Error(`Couldn't get stream data from transcoding URL...`);
-}
+  throw new Error("Couldn't get stream data from transcoding URL...");
+};
 
 /**
- * Resolve track metadata and buffers for download.
- * @param {string} url 
- * @returns {object}
+ * Resolve track metadata for download.
+ * @param {string} url
+ * @returns {Promise<any>}
  */
 const resolveTrack = async (url) => {
   const resolveUrl = new URL("https://api-v2.soundcloud.com");
@@ -110,41 +214,12 @@ const resolveTrack = async (url) => {
     throw new Error(`Error while resolving '${url}'...`);
   }
 
-  const resolveData = await resolveRes.json();
-  const streamData = await getStreamData(resolveData?.media?.transcodings);
-  
-  const trackUrl = new URL(streamData.url);
-  trackUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
-
-  const artworkUrl = (resolveData?.artwork_url || resolveData?.user?.avatar_url)
-    .replace(/large/ig, "t500x500");
-
-  const [
-    trackRes,
-    artworkRes
-  ] = await Promise.all([
-    fetch(trackUrl.toString()),
-    fetch(artworkUrl)
-  ]);
-
-  if (trackRes.status !== 200 || artworkRes.status !== 200) {
-    throw new Error(`Error while fetching track/artwork data...`);
-  }
-
-  const [
-    trackBuffer,
-    artworkBuffer
-  ] = await Promise.all([
-    trackRes.arrayBuffer(),
-    artworkRes.arrayBuffer()
-  ]);
-
-  return { resolveData, trackBuffer, artworkBuffer };
+  return resolveRes.json();
 };
 
 /**
  * Checks whether the given link is valid or not
- * @param {HTMLAnchorElement} link 
+ * @param {HTMLAnchorElement} link
  * @returns {boolean}
  */
 const isValidLink = (link) => {
@@ -206,20 +281,42 @@ const getTrackURL = (buttonElement) => {
 
 /**
  * Get track URL, resolve its metadata, tag and save as .mp3 file.
- * @param {HTMLElement} buttonElement 
+ * @param {HTMLElement} buttonElement
  */
 const downloadTrack = async (buttonElement) => {
   const trackURL = getTrackURL(buttonElement);
-  const { resolveData, trackBuffer, artworkBuffer } = await resolveTrack(trackURL);
+  const resolveData = await resolveTrack(trackURL);
 
-  tagAndSaveTrack(resolveData, trackBuffer, artworkBuffer);
+  const [
+    streamData,
+    artworkBuffer
+  ] = await Promise.all([
+    fetchStreamData(resolveData?.media?.transcodings),
+    resolveArtworkBuffer(resolveData?.artwork_url || resolveData?.user?.avatar_url)
+  ]);
+
+  const streamDataUrl = new URL(streamData.url);
+
+  streamDataUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
+
+  const trackUrl = streamDataUrl.toString();
+
+  if (streamData.protocol === "progressive") {
+    resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
+  } else if (streamData.protocol === "hls") {
+    resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
+  } else {
+    throw new Error("Couldn't resolve track: Unknown protocol.");
+  }
 };
 
 /**
  * Checks whether the given button group should be
  * appended a child download button.
  * Skip duplicates, and groups that are not directly linked to a track.
- * @param {HTMLElement} buttonGroup 
+ * Black-listing groups seems better than white-listing
+ * because of changes that can be made to the website.
+ * @param {HTMLElement} buttonGroup
  * @returns {boolean}
  */
 const isValidButtonGroup = (buttonGroup) => {
@@ -230,19 +327,21 @@ const isValidButtonGroup = (buttonGroup) => {
 
   const [
     isSet,
+    isProPlanAd,
     isSideTrack,
     isUserProfile
   ] = [
     childButtonNodes[4]?.classList?.contains("addToNextUp"),
+    childButtonNodes[0]?.classList?.contains("creatorSubscriptionsButton"),
     childButtonNodes.length === 2
       && childButtonNodes[0]?.classList?.contains("sc-button-like"),
     childButtonNodes.some((node) =>
       node.classList?.contains("sc-button-startstation"))
   ];
-  
-  return !isSet && !isSideTrack && !isUserProfile
+
+  return !isSet && !isProPlanAd && !isSideTrack && !isUserProfile
     && !window.SCDL__DOM_ELEMENTS.includes(buttonGroup.parentNode);
-}
+};
 
 /**
  * Insert 'Download' button(s) in the DOM wherever there is a group
@@ -273,8 +372,8 @@ const insertDownloadButtons = () => {
 
     const downloadButtonClone = downloadButton.cloneNode(true);
 
+    // change button size if needed
     if (buttonGroup.classList.contains("sc-button-group-small")) {
-      // change button size if needed
       downloadButtonClone.classList.replace(
         "sc-button-medium",
         "sc-button-small"
@@ -310,6 +409,9 @@ const setClientId = async () => {
   // fetch each one until finding the clientId
   for (const src of scriptSources) {
     const res = await fetch(src);
+
+    if (res.status !== 200) continue;
+
     const data = await res.text();
 
     const match = data.match(new RegExp(",client_id:\"(.*)\",env:\"production\""));
