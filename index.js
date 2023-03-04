@@ -11,12 +11,12 @@ window.SCDL__DOM_ELEMENTS = [];
 const watchNewTracksInterval = setInterval(() => {
   try {
     const currentUrl = document.URL;
-    const nbShareButtons = document.querySelectorAll(".sc-button-share").length;
+    const nbInsertedButtons = document.querySelectorAll(".scdl-custom-class").length;
 
     if (
       window.SCDL__CLIENT_ID
           && (currentUrl !== window.SCDL__LAST_URL
-          || nbShareButtons !== window.SCDL__TRACK_COUNT)
+          || nbInsertedButtons !== window.SCDL__TRACK_COUNT)
     ) {
       insertDownloadButtons();
       window.SCDL__TRACK_COUNT = nbShareButtons;
@@ -314,8 +314,8 @@ const downloadTrack = async (buttonElement) => {
  * Checks whether the given button group should be
  * appended a child download button.
  * Skip duplicates, and groups that are not directly linked to a track.
- * Black-listing groups seems better than white-listing
- * because of changes that can be made to the website.
+ * This is dirty, but black-listing groups seems better than
+ * white-listing because of changes that can be made to the website.
  * @param {HTMLElement} buttonGroup
  * @returns {boolean}
  */
@@ -329,17 +329,20 @@ const isValidButtonGroup = (buttonGroup) => {
     isSet,
     isProPlanAd,
     isSideTrack,
-    isUserProfile
+    isUserProfile,
+    isSystemPlaylist
   ] = [
     childButtonNodes[4]?.classList?.contains("addToNextUp"),
     childButtonNodes[0]?.classList?.contains("creatorSubscriptionsButton"),
     childButtonNodes.length === 2
       && childButtonNodes[0]?.classList?.contains("sc-button-like"),
     childButtonNodes.some((node) =>
-      node.classList?.contains("sc-button-startstation"))
+      node.classList?.contains("sc-button-startstation")),
+    buttonGroup.parentElement.parentElement.classList
+      ?.contains("systemPlaylistBannerItem__actions")
   ];
 
-  return !isSet && !isProPlanAd && !isSideTrack && !isUserProfile
+  return !isSet && !isProPlanAd && !isSideTrack && !isUserProfile && !isSystemPlaylist
     && !window.SCDL__DOM_ELEMENTS.includes(buttonGroup.parentNode);
 };
 
@@ -361,7 +364,8 @@ const insertDownloadButtons = () => {
     "sc-button-download",
     "sc-button",
     "sc-button-medium", // default button size
-    "sc-button-responsive"
+    "sc-button-responsive",
+    "scdl-custom-class"
   );
 
   // get all button groups in the page
