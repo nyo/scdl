@@ -1,4 +1,8 @@
 # SoundCloud Downloader
+![GitHub manifest version](https://img.shields.io/github/manifest-json/v/nyo/scdl/main)
+![Mozilla Add-on](https://img.shields.io/amo/v/scdl)
+![Mozilla Add-on](https://img.shields.io/amo/users/scdl)
+![Mozilla Add-on](https://img.shields.io/amo/stars/scdl)
 
 Firefox add-on that adds an instant download button under SoundCloud tracks.
 
