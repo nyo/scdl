@@ -9,6 +9,15 @@ window.SCDL__DOM_ELEMENTS = [];
  */
 const SCDL_CUSTOM_CLASS_NAME = "scdl-custom-class";
 
+/**
+ * Define custom logger object for logging
+ * with a prefixed tag to differenciate add-on logs.
+ */
+const SCDL_LOG_PREFIX = "[scdl]";
+const logger = {
+  info: console.info.bind(console, SCDL_LOG_PREFIX),
+  error: console.error.bind(console, SCDL_LOG_PREFIX)
+}
 
 /**
  * Check every second for new loaded tracks in the page.
@@ -32,7 +41,7 @@ const watchNewTracksInterval = setInterval(() => {
       window.SCDL__LAST_URL = currentUrl;
     }
   } catch (err) {
-    console.error(err);
+    logger.error(err);
   }
 }, 1000);
 
@@ -185,7 +194,7 @@ const fetchStreamData = async (transcodings) => {
   }, []);
 
   for (const transcoding of filteredTranscodings) {
-    console.info(
+    logger.info(
       `Trying with '${transcoding.format?.protocol}' transcoding ('${transcoding.format?.mime_type}' MIME type)...`
     );
 
@@ -465,10 +474,10 @@ const setClientId = async () => {
   try {
     await setClientId();
 
-    console.info(`Found SoundCloud clientId! ${window.SCDL__CLIENT_ID}`);
+    logger.info(`Found SoundCloud clientId! ${window.SCDL__CLIENT_ID}`);
 
     insertDownloadButtons();
   } catch (err) {
-    console.error(err);
+    logger.error(err);
   }
 })();
