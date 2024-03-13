@@ -54,6 +54,8 @@ window.addEventListener("beforeunload", () => {
 
 /**
  * Write metadatas to track buffer, then save it as mp3 file.
+ * This is using ID3 version 2.3 (ID3v2.3) tags supported by browser-id3-writer.
+ * cf. https://github.com/egoroof/browser-id3-writer?tab=readme-ov-file#supported-frames
  * @param {ArrayBuffer} trackBuffer
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
@@ -67,6 +69,10 @@ const tagAndSaveTrack = (trackBuffer, artworkBuffer, metadata) => {
     .setFrame("TYER", metadata.created_at?.split("-")[0]) // keep only year from date
     .setFrame("TCON", [metadata.genre])
     .setFrame("WOAS", metadata.permalink_url)
+    .setFrame("COMM", { 
+      description: "",
+      text: metadata.description
+    })
     .setFrame("APIC", {
       type: 3,
       data: artworkBuffer,
