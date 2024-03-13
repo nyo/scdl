@@ -1,6 +1,6 @@
 window.SCDL__CLIENT_ID = null;
 window.SCDL__LAST_URL = null;
-window.SCDL__TRACK_COUNT = 0;
+window.SCDL__NB_PAGE_BUTTON_GROUP = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
@@ -27,18 +27,18 @@ const logger = {
 const watchNewTracksInterval = setInterval(() => {
   try {
     const currentUrl = document.URL;
-    const nbInsertedButtons = document
-      .querySelectorAll(`.${SCDL_CUSTOM_CLASS_NAME}`)
+    const nbPageButtonGroup = document
+      .getElementsByClassName("sc-button-group")
       ?.length;
 
     if (
       window.SCDL__CLIENT_ID
-          && (currentUrl !== window.SCDL__LAST_URL
-          || nbInsertedButtons !== window.SCDL__TRACK_COUNT)
+        && (currentUrl !== window.SCDL__LAST_URL
+        || nbPageButtonGroup !== window.SCDL__NB_PAGE_BUTTON_GROUP)
     ) {
       insertDownloadButtons();
-      window.SCDL__TRACK_COUNT = nbInsertedButtons;
       window.SCDL__LAST_URL = currentUrl;
+      window.SCDL__NB_PAGE_BUTTON_GROUP = nbPageButtonGroup;
     }
   } catch (err) {
     logger.error(err);
@@ -475,8 +475,6 @@ const setClientId = async () => {
     await setClientId();
 
     logger.info(`Found SoundCloud clientId! ${window.SCDL__CLIENT_ID}`);
-
-    insertDownloadButtons();
   } catch (err) {
     logger.error(err);
   }
