@@ -18,6 +18,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 - ✅ normalized file name
 - ✅ works with private tracks
 - ✅ supports both `progressive` and `hls` transcoding formats
+- ✅ lightweight (~20 Ko)
 - ✅ no data sent to third party, everything is done client-side, in your browser
 - ✅ no need to be premium or even logged in to download tracks!
 
