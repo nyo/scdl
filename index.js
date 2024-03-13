@@ -4,6 +4,13 @@ window.SCDL__TRACK_COUNT = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
+ * This custom className is used to spot
+ * buttons that have been created with this add-on.
+ */
+const SCDL_CUSTOM_CLASS_NAME = "scdl-custom-class";
+
+
+/**
  * Check every second for new loaded tracks in the page.
  * Add download button if the page url has changed, or if new tracks
  * have been loaded in the page.
@@ -11,7 +18,9 @@ window.SCDL__DOM_ELEMENTS = [];
 const watchNewTracksInterval = setInterval(() => {
   try {
     const currentUrl = document.URL;
-    const nbInsertedButtons = document.querySelectorAll(".scdl-custom-class").length;
+    const nbInsertedButtons = document
+      .querySelectorAll(`.${SCDL_CUSTOM_CLASS_NAME}`)
+      ?.length;
 
     if (
       window.SCDL__CLIENT_ID
@@ -314,36 +323,59 @@ const downloadTrack = async (buttonElement) => {
  * Checks whether the given button group should be
  * appended a child download button.
  * Skip duplicates, and groups that are not directly linked to a track.
- * This is dirty, but black-listing groups seems better than
+ * 
+ * /!\ This is dirty, but black-listing groups seems better than
  * white-listing because of changes that can be made to the website.
+ * 
  * @param {HTMLElement} buttonGroup
  * @returns {boolean}
  */
 const isValidButtonGroup = (buttonGroup) => {
   if (!buttonGroup) return false;
 
+  const parentButtonNode = buttonGroup.parentNode;
+
+  if (
+    !parentButtonNode ||
+    !parentButtonNode.classList.contains("soundActions") ||
+    window.SCDL__DOM_ELEMENTS.includes(parentButtonNode)
+  ) {
+    return false;
+  }
+
+  // sets, albums, playlists...
+  // from a page that is not the set/album/playlist page
+  const grandparentElement = parentButtonNode.parentElement?.parentElement;
+  const grandparentChildNodes = Array.from(grandparentElement?.childNodes)
+    .filter((node) => node.className);
+  const grandparentContainsTrackList = grandparentChildNodes
+    .some((node) => node.classList?.contains("sound__trackList"))
+
+  if (grandparentContainsTrackList) {
+    return false;
+  }
+
+  // sets, albums, playlists...
+  // from the set/album/playlist page
+  const pageUrl = new URL(document.URL);
+  const isSetPage = pageUrl.pathname.split("/")[2] === "sets";
+
+  if (isSetPage && buttonGroup.classList.contains("sc-button-group-medium")) {
+    return false;
+  }
+
   const childButtonNodes = Array.from(buttonGroup.childNodes)
     .filter((node) => node.className);
 
-  const [
-    isSet,
-    isProPlanAd,
-    isSideTrack,
-    isUserProfile,
-    isSystemPlaylist
-  ] = [
-    childButtonNodes[4]?.classList?.contains("addToNextUp"),
-    childButtonNodes[0]?.classList?.contains("creatorSubscriptionsButton"),
-    childButtonNodes.length === 2
-      && childButtonNodes[0]?.classList?.contains("sc-button-like"),
-    childButtonNodes.some((node) =>
-      node.classList?.contains("sc-button-startstation")),
-    buttonGroup.parentElement.parentElement.classList
-      ?.contains("systemPlaylistBannerItem__actions")
-  ];
+  // related tracks, profile likes...
+  const isSideTrack = childButtonNodes.length === 2
+    && childButtonNodes[0]?.classList?.contains("sc-button-like")
 
-  return !isSet && !isProPlanAd && !isSideTrack && !isUserProfile && !isSystemPlaylist
-    && !window.SCDL__DOM_ELEMENTS.includes(buttonGroup.parentNode);
+  // your latest upload...
+  const isPersonalTrack = childButtonNodes.some((node) =>
+    node.classList?.contains("sc-button-upload"));
+
+  return !isSideTrack && !isPersonalTrack;
 };
 
 /**
@@ -352,7 +384,7 @@ const isValidButtonGroup = (buttonGroup) => {
  * The size of each button is determined from the size of the buttons of the group.
  */
 const insertDownloadButtons = () => {
-  // create html anchor element
+  // create the new download button to be inserted
   const downloadButton = document.createElement("a");
   const downloadButtonText = document.createTextNode("Download");
 
@@ -361,11 +393,11 @@ const insertDownloadButtons = () => {
   downloadButton.classList.add(
     // "sc-button-disabled",
     // "sc-button-icon",
-    "sc-button-download",
+    "sc-button-download", // for download icon
     "sc-button",
     "sc-button-medium", // default button size
     "sc-button-responsive",
-    "scdl-custom-class"
+    SCDL_CUSTOM_CLASS_NAME
   );
 
   // get all button groups in the page
@@ -417,13 +449,11 @@ const setClientId = async () => {
     if (res.status !== 200) continue;
 
     const data = await res.text();
-
     const match = data.match(new RegExp(",client_id:\"(.*)\",env:\"production\""));
     const clientId = match?.find((str) => str.length === 32);
 
     if (clientId) {
       window.SCDL__CLIENT_ID = clientId;
-
       return;
     }
   }
