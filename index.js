@@ -4,12 +4,6 @@ window.SCDL__NB_PAGE_BUTTON_GROUP = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
- * This custom className is used to spot
- * buttons that have been created with this add-on.
- */
-const SCDL_CUSTOM_CLASS_NAME = "scdl-custom-class";
-
-/**
  * Define custom logger object for logging
  * with a prefixed tag to differenciate add-on logs.
  */
@@ -26,19 +20,18 @@ const logger = {
  */
 const watchNewTracksInterval = setInterval(() => {
   try {
-    const currentUrl = document.URL;
-    const nbPageButtonGroup = document
-      .getElementsByClassName("sc-button-group")
-      ?.length;
+    const pageUrl = document.URL;
+    const pageButtonGroups = document.getElementsByClassName("sc-button-group");
+    const nbPageButtonGroups = pageButtonGroups?.length;
 
     if (
       window.SCDL__CLIENT_ID
-        && (currentUrl !== window.SCDL__LAST_URL
-        || nbPageButtonGroup !== window.SCDL__NB_PAGE_BUTTON_GROUP)
+        && (pageUrl !== window.SCDL__LAST_URL
+        || nbPageButtonGroups !== window.SCDL__NB_PAGE_BUTTON_GROUP)
     ) {
       insertDownloadButtons();
-      window.SCDL__LAST_URL = currentUrl;
-      window.SCDL__NB_PAGE_BUTTON_GROUP = nbPageButtonGroup;
+      window.SCDL__LAST_URL = pageUrl;
+      window.SCDL__NB_PAGE_BUTTON_GROUP = nbPageButtonGroups;
     }
   } catch (err) {
     logger.error(err);
@@ -411,8 +404,7 @@ const insertDownloadButtons = () => {
     "sc-button-download", // for download icon
     "sc-button",
     "sc-button-medium", // default button size
-    "sc-button-responsive",
-    SCDL_CUSTOM_CLASS_NAME
+    "sc-button-responsive"
   );
 
   // get all button groups in the page

@@ -15,6 +15,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 
 - ✅ download any SoundCloud track in mp3 format (128kbps, one at a time)
 - ✅ adds normalized metadata (artwork, artist, title, genre, year, description & source url)
+- ✅ normalized file name
 - ✅ works with private tracks
 - ✅ supports both `progressive` and `hls` transcoding formats
 - ✅ no data sent to third party, everything is done client-side, in your browser
