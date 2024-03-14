@@ -56,27 +56,68 @@ window.addEventListener("beforeunload", () => {
 const tagAndSaveTrack = (trackBuffer, artworkBuffer, metadata) => {
   const writer = new ID3Writer(trackBuffer);
 
-  writer
-    .setFrame("TPE1", [metadata.user?.username])
-    .setFrame("TIT2", metadata.title)
-    .setFrame("TYER", metadata.created_at?.split("-")[0]) // keep only year from date
-    .setFrame("TCON", [metadata.genre])
-    .setFrame("WOAS", metadata.permalink_url)
-    .setFrame("COMM", { 
-      description: "",
-      text: metadata.description
-    })
-    .setFrame("APIC", {
+  const songArtist = metadata.publisher_metadata?.artist
+    || metadata.user?.username;
+
+  if (songArtist) {
+    writer.setFrame("TPE1", [songArtist]);
+  }
+
+  const songTitle = metadata.publisher_metadata?.release_title
+    || metadata.title;
+
+  if (songTitle) {
+    writer.setFrame("TIT2", songTitle);
+  }
+
+  // keep only year from date
+  const albumReleaseYear = metadata.release_date
+    || metadata.created_at?.split("-")?.[0];
+
+  if (albumReleaseYear) {
+    writer.setFrame("TYER", albumReleaseYear);
+  }
+
+  const songGenre = metadata.genre;
+
+  if (songGenre) {
+    writer.setFrame("TCON", [songGenre]);
+  }
+
+  const songComposer = metadata.publisher_metadata?.writer_composer;
+
+  if (songComposer) {
+    writer.setFrame("TCOM", [songComposer]);
+  }
+
+  const sourceWebpage = metadata.permalink_url;
+
+  if (sourceWebpage) {
+    writer.setFrame("WOAS", sourceWebpage);
+  }
+
+  if (artworkBuffer) {
+    writer.setFrame("APIC", {
       type: 3,
       data: artworkBuffer,
       description: "Track artwork"
 	  });
+  }
+
+  const songDescription = metadata.description;
+
+  if (songDescription) {
+    writer.setFrame("COMM", {
+      description: "",
+      text: songDescription
+    });
+  }
 
   writer.addTag();
 
   saveAs(
     writer.getBlob(),
-    `${metadata.user?.username} - ${metadata.title}.mp3`.toLowerCase()
+    `${songArtist} - ${songTitle}.mp3`.toLowerCase()
   );
 
   writer.revokeURL(); // memory control
