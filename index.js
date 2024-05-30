@@ -204,6 +204,8 @@ const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
  * @returns {Promise<ArrayBuffer>}
  */
 const resolveArtworkBuffer = async (artworkUrl) => {
+  if (!artworkUrl) return;
+
   const artworkRes = await fetch(artworkUrl.replace(/large/ig, "t500x500"));
 
   if (artworkRes.status !== 200) {
@@ -344,14 +346,14 @@ const getTrackURL = (buttonElement) => {
 const downloadTrack = async (buttonElement) => {
   const trackURL = getTrackURL(buttonElement);
   const resolveData = await resolveTrack(trackURL);
+  const streamData = await fetchStreamData(resolveData?.media?.transcodings);
 
-  const [
-    streamData,
-    artworkBuffer
-  ] = await Promise.all([
-    fetchStreamData(resolveData?.media?.transcodings),
-    resolveArtworkBuffer(resolveData?.artwork_url || resolveData?.user?.avatar_url)
-  ]);
+  let artworkBuffer;
+  try {
+    artworkBuffer = await resolveArtworkBuffer(resolveData?.artwork_url || resolveData?.user?.avatar_url);
+  } catch (err) {
+    logger.error(err);
+  }
 
   const streamDataUrl = new URL(streamData.url);
 
