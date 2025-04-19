@@ -436,20 +436,54 @@ const isValidButtonGroup = (buttonGroup) => {
  */
 const insertDownloadButtons = () => {
   // create the new download button to be inserted
-  const downloadButton = document.createElement("a");
-  const downloadButtonText = document.createTextNode("Download");
+  const downloadButton = document.createElement("button");
 
-  downloadButton.appendChild(downloadButtonText);
-  downloadButton.setAttribute("title", "Download");
+  // set button attributes
+  downloadButton.setAttribute("type", "button");
+  downloadButton.setAttribute("tabindex", "0");
+  downloadButton.setAttribute("aria-label", "Download");
+  downloadButton.setAttribute("role", "button");
+  
+  // create SVG icon
+  const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svgElement.setAttribute("viewBox", "0 0 16 16");
+  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svgElement.setAttribute("aria-hidden", "true");
+  
+  // create download icon path
+  const pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  pathElement.setAttribute("d", "M8 15A7 7 0 108 1a7 7 0 000 14zm3.47-7.53l1.06 1.06L8 13.06 3.47 8.53l1.06-1.06 2.72 2.72V3h1.5v7.19l2.72-2.72z");
+  pathElement.setAttribute("fill", "currentColor");
+  pathElement.setAttribute("stroke-width", "1.5");
+  pathElement.setAttribute("stroke-linecap", "round");
+  pathElement.setAttribute("stroke-linejoin", "round");
+  
+  svgElement.appendChild(pathElement);
+  
+  // create div to contain SVG
+  const divElement = document.createElement("div");
+  divElement.appendChild(svgElement);
+  
+  // create visually hidden label
+  const labelElement = document.createElement("span");
+  labelElement.classList.add("sc-button-label", "sc-visuallyhidden");
+  labelElement.textContent = "Download";
+  
+  // add elements to button
+  downloadButton.appendChild(divElement);
+  downloadButton.appendChild(labelElement);
+  
+  // add classes
   downloadButton.classList.add(
-    // "sc-button-disabled",
-    // "sc-button-icon",
-    "sc-button-download", // for download icon
+    "sc-button-download",
+    "sc-button-secondary",
     "sc-button",
     "sc-button-medium", // default button size
-    "sc-button-responsive"
+    "sc-button-icon",
+    "sc-button-responsive",
+    "sc-button-selected" // set icon color to soundcloud orange
   );
-
+  
   // get all button groups in the page
   const buttonGroups = document.getElementsByClassName("sc-button-group");
 
@@ -515,7 +549,7 @@ const setClientId = async () => {
   try {
     await setClientId();
 
-    logger.info(`Found SoundCloud clientId! ${window.SCDL__CLIENT_ID}`);
+    logger.info(`Found SoundCloud clientId: ${window.SCDL__CLIENT_ID}`);
   } catch (err) {
     logger.error(err);
   }
