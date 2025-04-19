@@ -483,7 +483,7 @@ const insertDownloadButtons = () => {
     "sc-button-responsive",
     "sc-button-selected" // set icon color to soundcloud orange
   );
-  
+
   // get all button groups in the page
   const buttonGroups = document.getElementsByClassName("sc-button-group");
 
