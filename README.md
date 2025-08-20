@@ -27,10 +27,14 @@ If you encounter any issues or bugs, please report them on the [GitHub Issues pa
 
 ## Preview
 
-![download button on track page preview image](assets/preview-0.png)
-![download button in album tracklist view preview image](assets/preview-1.png)
-![download button in search view preview image](assets/preview-2.png)
-![id3 tags metadata preview image](assets/preview-3.png)
+![download button on track page preview image](assets/firefox/preview-1.png)
+![download button in album tracklist view preview image](assets/firefox/preview-2.png)
+![download button in search view preview image](assets/firefox/preview-3.png)
+![id3 tags metadata preview image](assets/firefox/preview-4.png)
+
+## Privacy
+
+This extension does not collect, store, or transmit any personal data. It works entirely client-side and does not send any data to external servers. See [Privacy Policy](PRIVACY.md) for more details.
 
 ## Development
 
