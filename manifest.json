@@ -1,7 +1,7 @@
 {
-	"manifest_version": 2,
+	"manifest_version": 3,
 	"name": "SoundCloud Downloader",
-	"version": "2.4",
+	"version": "2.5",
 	"description": "Download SoundCloud songs as mp3s with normalized metadata.",
 	"homepage_url": "https://github.com/nyo/scdl",
 	"icons": {
@@ -11,9 +11,11 @@
 		"128": "icons/icon-128.png"
 	},
 	"permissions": [
-		"*://*.soundcloud.com/*",
-		"*://*.sndcdn.com/*",
 		"webRequest"
+	],
+	"host_permissions": [
+		"*://*.soundcloud.com/*",
+		"*://*.sndcdn.com/*"
 	],
 	"content_scripts": [
 		{
