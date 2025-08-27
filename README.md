@@ -5,23 +5,22 @@
 ![Mozilla Add-on](https://img.shields.io/amo/users/scdl)
 ![Mozilla Add-on](https://img.shields.io/amo/stars/scdl)
 
-Browser extension that adds an instant download button under SoundCloud tracks. Works on both Firefox and Chrome!
+Firefox add-on that adds an instant download button under SoundCloud tracks.
 
 ## Get it now!
 
-- **Firefox**: https://addons.mozilla.org/firefox/addon/scdl
-- **Chrome**: Coming soon to Chrome Web Store
+https://addons.mozilla.org/firefox/addon/scdl
 
 ## Features
 
-- ✅ Download any SoundCloud track in mp3 format (128kbps, one at a time)
-- ✅ Adds normalized metadata (artwork, artist, title, genre, year, description & source url)
-- ✅ Normalized file name
-- ✅ Works with private tracks
-- ✅ Supports both `progressive` and `hls` transcoding formats
-- ✅ Lightweight (~20 Ko)
-- ✅ No data sent to third party, everything is done client-side, in your browser
-- ✅ No need to be premium or even logged in to download tracks!
+- ✅ download any SoundCloud track in mp3 format (128kbps, one at a time)
+- ✅ adds normalized metadata (artwork, artist, title, genre, year, description & source url)
+- ✅ normalized file name
+- ✅ works with private tracks
+- ✅ supports both `progressive` and `hls` transcoding formats
+- ✅ lightweight (~20 Ko)
+- ✅ no data sent to third party, everything is done client-side, in your browser
+- ✅ no need to be premium or even logged in to download tracks!
 
 If you encounter any issues or bugs, please report them on the [GitHub Issues page](https://github.com/nyo/scdl/issues)!
 
@@ -35,18 +34,6 @@ If you encounter any issues or bugs, please report them on the [GitHub Issues pa
 ## Privacy
 
 This extension does not collect, store, or transmit any personal data. It works entirely client-side and does not send any data to external servers. See [Privacy Policy](PRIVACY.md) for more details.
-
-## Development
-
-### Building
-
-To build both Firefox add-on and Chrome extension:
-
-```bash
-bash build.sh
-```
-
-This will create: `scdl-{version}.zip`
 
 ## External libraries
 
