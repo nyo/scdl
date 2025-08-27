@@ -13,16 +13,16 @@ https://addons.mozilla.org/firefox/addon/scdl
 
 ## Features
 
-- ✅ download any SoundCloud track in mp3 format (128kbps, one at a time)
-- ✅ adds normalized metadata (artwork, artist, title, genre, year, description & source url)
-- ✅ normalized file name
-- ✅ works with private tracks
-- ✅ supports both `progressive` and `hls` transcoding formats
-- ✅ lightweight (~20 Ko)
-- ✅ no data sent to third party, everything is done client-side, in your browser
-- ✅ no need to be premium or even logged in to download tracks!
+- ✅ Download any SoundCloud track in mp3 format (128kbps, one at a time)
+- ✅ Adds normalized metadata (artwork, artist, title, genre, year, description & source url)
+- ✅ Normalized file name (artist - title, lowercase)
+- ✅ Works with private tracks
+- ✅ Supports both `progressive` and `hls` transcoding formats
+- ✅ Lightweight (~20 Ko)
+- ✅ No data sent to third party, everything is done client-side, in your browser
+- ✅ No need to be premium or even logged in to download tracks!
 
-If you encounter any issues or bugs, please report them on the [GitHub Issues page](https://github.com/nyo/scdl/issues)!
+If you encounter any issues, bugs, or have any suggestions, please report them on the [GitHub Issues page](https://github.com/nyo/scdl/issues)!
 
 ## Preview
 
@@ -31,7 +31,17 @@ If you encounter any issues or bugs, please report them on the [GitHub Issues pa
 ![download button in search view preview image](assets/preview-2.png)
 ![id3 tags metadata preview image](assets/preview-3.png)
 
-## External libraries
+## Development
+
+### Building
+
+To build the add-on locally, run:
+
+```bash
+bash build.sh # creates a `scdl-{version}.zip` file
+```
+
+### External libraries
 
 - [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) for mp3s tagging
 - [FileSaver.js](https://github.com/eligrey/FileSaver.js) for saving files client-side

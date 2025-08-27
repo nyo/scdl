@@ -8,4 +8,4 @@ if ! zip -r "$build_name" icons/ libs/ index.js manifest.json; then
     exit 1
 fi
 
-echo "Archive created: $build_name"
+echo -e "\nArchive created: $build_name"
