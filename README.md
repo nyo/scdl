@@ -22,7 +22,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 - ✅ No data sent to third party, everything is done client-side, in your browser
 - ✅ No need to be premium or even logged in to download tracks!
 
-If you encounter any issues, bugs, or have any suggestions, please report them on the [GitHub Issues page](https://github.com/nyo/scdl/issues)!
+If you encounter any issues, bugs, or have suggestions, please report them on the [GitHub Issues](https://github.com/nyo/scdl/issues) page!
 
 ## Preview
 
