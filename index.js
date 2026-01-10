@@ -1,3 +1,5 @@
+"use strict";
+
 window.SCDL__CLIENT_ID = null;
 window.SCDL__LAST_URL = null;
 window.SCDL__NB_PAGE_BUTTON_GROUP = 0;
@@ -48,7 +50,7 @@ window.addEventListener("beforeunload", () => {
 /**
  * Write metadatas to track buffer, then save it as mp3 file.
  * This is using ID3 version 2.3 (ID3v2.3) tags supported by browser-id3-writer.
- * cf. https://github.com/egoroof/browser-id3-writer?tab=readme-ov-file#supported-frames
+ * @see https://github.com/egoroof/browser-id3-writer?tab=readme-ov-file#supported-frames
  * @param {ArrayBuffer} trackBuffer
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
