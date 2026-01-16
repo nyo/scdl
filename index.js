@@ -255,7 +255,7 @@ const fetchStreamData = async (transcodings) => {
     }
   }
 
-  throw new Error("Couldn't get stream data from transcoding URL...");
+  throw new Error("Failed to get stream data from transcoding URL...");
 };
 
 /**
@@ -331,7 +331,7 @@ const getTrackURL = (buttonElement) => {
   );
 
   if (!longestValidLink.href) {
-    throw new Error("Couldn't find track URL...");
+    throw new Error("Failed to find track URL...");
   }
 
   const trackURL = longestValidLink.href.split("?")[0];
@@ -368,7 +368,7 @@ const downloadTrack = async (buttonElement) => {
   } else if (streamData.protocol === "hls") {
     resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
   } else {
-    throw new Error("Couldn't resolve track: Unknown protocol.");
+    throw new Error("Failed to resolve track: Unknown protocol.");
   }
 };
 
@@ -529,22 +529,26 @@ const setClientId = async () => {
 
   // iterate through all the scripts and
   // fetch each one until finding the clientId
+  const regex = /,client_id:"([a-zA-Z0-9]{32})"/;
   for (const src of scriptSources) {
-    const res = await fetch(src);
-
-    if (res.status !== 200) continue;
-
-    const data = await res.text();
-    const match = data.match(new RegExp(",client_id:\"(.*)\",env:\"production\""));
-    const clientId = match?.find((str) => str.length === 32);
-
-    if (clientId) {
-      window.SCDL__CLIENT_ID = clientId;
-      return;
+    try {
+      const res = await fetch(src);
+      if (!res.ok) continue;
+  
+      const data = await res.text();
+      const match = data.match(regex);
+      const clientId = match?.[1];
+  
+      if (clientId) {
+        window.SCDL__CLIENT_ID = clientId;
+        return;
+      }
+    } catch (err) {
+      continue; // ignore fetch errors and keep trying
     }
   }
 
-  throw new Error("Couldn't find SoundCloud clientId...");
+  throw new Error("Failed to find SoundCloud clientId...");
 };
 
 (async () => {
