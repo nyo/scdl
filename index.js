@@ -12,19 +12,17 @@ window.SCDL__DOM_ELEMENTS = [];
 const SCDL_LOG_PREFIX = "[scdl]";
 const logger = {
   info: console.info.bind(console, SCDL_LOG_PREFIX),
-  error: console.error.bind(console, SCDL_LOG_PREFIX)
-}
+  error: console.error.bind(console, SCDL_LOG_PREFIX),
+};
 
 const SCDL__FORMAT_DEFAULTS = {
   format: "{artist} - {title}",
-  lowercase: true
+  lowercase: true,
 };
 
 const applyFormat = (format, data) => {
   return format.replace(/\{(\w+)\}/g, (_, token) => {
-    return data[token] !== undefined && data[token] !== null
-      ? data[token]
-      : "";
+    return data[token] !== undefined && data[token] !== null ? data[token] : "";
   });
 };
 
@@ -47,9 +45,9 @@ const watchNewTracksInterval = setInterval(() => {
     const nbPageButtonGroups = pageButtonGroups?.length;
 
     if (
-      window.SCDL__CLIENT_ID
-        && (pageUrl !== window.SCDL__LAST_URL
-        || nbPageButtonGroups !== window.SCDL__NB_PAGE_BUTTON_GROUP)
+      window.SCDL__CLIENT_ID &&
+      (pageUrl !== window.SCDL__LAST_URL ||
+        nbPageButtonGroups !== window.SCDL__NB_PAGE_BUTTON_GROUP)
     ) {
       insertDownloadButtons();
       window.SCDL__LAST_URL = pageUrl;
@@ -78,23 +76,23 @@ window.addEventListener("beforeunload", () => {
 const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
   const writer = new ID3Writer(trackBuffer);
 
-  const songArtist = metadata.publisher_metadata?.artist
-    || metadata.user?.username;
+  const songArtist =
+    metadata.publisher_metadata?.artist || metadata.user?.username;
 
   if (songArtist) {
     writer.setFrame("TPE1", [songArtist]);
   }
 
-  const songTitle = metadata.publisher_metadata?.release_title
-    || metadata.title;
+  const songTitle =
+    metadata.publisher_metadata?.release_title || metadata.title;
 
   if (songTitle) {
     writer.setFrame("TIT2", songTitle);
   }
 
   // keep only year from date
-  const albumReleaseYear = metadata.release_date
-    || metadata.created_at?.split("-")?.[0];
+  const albumReleaseYear =
+    metadata.release_date || metadata.created_at?.split("-")?.[0];
 
   if (albumReleaseYear) {
     writer.setFrame("TYER", albumReleaseYear);
@@ -122,8 +120,8 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
     writer.setFrame("APIC", {
       type: 3,
       data: artworkBuffer,
-      description: "Track artwork"
-	  });
+      description: "Track artwork",
+    });
   }
 
   const songDescription = metadata.description;
@@ -131,7 +129,7 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
   if (songDescription) {
     writer.setFrame("COMM", {
       description: "",
-      text: songDescription
+      text: songDescription,
     });
   }
 
@@ -152,7 +150,7 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
     genre: songGenre || "",
     album: metadata.publisher_metadata?.album_title || "",
     username: metadata.user?.username || "",
-    comment: songDescription || ""
+    comment: songDescription || "",
   };
 
   let filename = applyFormat(settings.format, tokenData);
@@ -178,7 +176,9 @@ const blobToArrayBuffer = (blob) => {
     const reader = new FileReader();
 
     reader.readAsArrayBuffer(blob);
-    reader.onload = () => { resolve(reader.result); };
+    reader.onload = () => {
+      resolve(reader.result);
+    };
   });
 };
 
@@ -209,16 +209,13 @@ const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
       .map((line) => new URL(line, trackUrl).toString());
 
     Promise.all(
-      mp3Urls.map(
-        (url) => fetch(url).then((res) => res.arrayBuffer())
-      )
-    )
-      .then(async (arrayBuffers) => {
-        const blob = new Blob(arrayBuffers);
-        const trackArrayBuffer = await blobToArrayBuffer(blob);
+      mp3Urls.map((url) => fetch(url).then((res) => res.arrayBuffer()))
+    ).then(async (arrayBuffers) => {
+      const blob = new Blob(arrayBuffers);
+      const trackArrayBuffer = await blobToArrayBuffer(blob);
 
-        await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
-      });
+      await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
+    });
   };
 
   audioElement.src = URL.createObjectURL(mediaSource);
@@ -251,7 +248,7 @@ const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
 const resolveArtworkBuffer = async (artworkUrl) => {
   if (!artworkUrl) return;
 
-  const artworkRes = await fetch(artworkUrl.replace(/large/ig, "t500x500"));
+  const artworkRes = await fetch(artworkUrl.replace(/large/gi, "t500x500"));
 
   if (artworkRes.status !== 200) {
     throw new Error("Error while fetching artwork URL...");
@@ -334,17 +331,16 @@ const isValidLink = (link) => {
     "trackItem__trackTitle",
     "soundTitle__title",
     "chartTrack__title",
-    "playableTile__mainHeading"
+    "playableTile__mainHeading",
   ];
 
-  if (!validClassNames.some((className) => link.className?.includes(className))) {
+  if (
+    !validClassNames.some((className) => link.className?.includes(className))
+  ) {
     return false;
   }
 
-  const ignoredPaths = [
-    "/stream",
-    "/comments"
-  ];
+  const ignoredPaths = ["/stream", "/comments"];
 
   return !ignoredPaths.some((path) => link.href.includes(path));
 };
@@ -355,11 +351,7 @@ const isValidLink = (link) => {
  * @returns {string}
  */
 const getTrackURL = (buttonElement) => {
-  const node = [
-    ".streamContext",
-    ".chartTrack",
-    ".trackItem"
-  ]
+  const node = [".streamContext", ".chartTrack", ".trackItem"]
     .map((selector) => buttonElement.closest(selector))
     .find(Boolean);
 
@@ -367,9 +359,8 @@ const getTrackURL = (buttonElement) => {
 
   const links = node.querySelectorAll("a");
   const longestValidLink = Array.from(links).reduce(
-    (acc, link) => isValidLink(link) && link.href.length > acc.href.length
-      ? link
-      : acc,
+    (acc, link) =>
+      isValidLink(link) && link.href.length > acc.href.length ? link : acc,
     { href: "" }
   );
 
@@ -395,7 +386,9 @@ const downloadTrack = async (buttonElement) => {
 
   let artworkBuffer;
   try {
-    artworkBuffer = await resolveArtworkBuffer(resolveData?.artwork_url || resolveData?.user?.avatar_url);
+    artworkBuffer = await resolveArtworkBuffer(
+      resolveData?.artwork_url || resolveData?.user?.avatar_url
+    );
   } catch (err) {
     logger.error(err);
   }
@@ -419,10 +412,10 @@ const downloadTrack = async (buttonElement) => {
  * Checks whether the given button group should be
  * appended a child download button.
  * Skip duplicates, and groups that are not directly linked to a track.
- * 
+ *
  * /!\ This is dirty, but black-listing groups seems better than
  * white-listing because of changes that can be made to the website.
- * 
+ *
  * @param {HTMLElement} buttonGroup
  * @returns {boolean}
  */
@@ -442,10 +435,12 @@ const isValidButtonGroup = (buttonGroup) => {
   // sets, albums, playlists...
   // from a page that is not the set/album/playlist page
   const grandparentElement = parentButtonNode.parentElement?.parentElement;
-  const grandparentChildNodes = Array.from(grandparentElement?.childNodes)
-    .filter((node) => node.className);
-  const grandparentContainsTrackList = grandparentChildNodes
-    .some((node) => node.classList?.contains("sound__trackList"))
+  const grandparentChildNodes = Array.from(
+    grandparentElement?.childNodes
+  ).filter((node) => node.className);
+  const grandparentContainsTrackList = grandparentChildNodes.some((node) =>
+    node.classList?.contains("sound__trackList")
+  );
 
   if (grandparentContainsTrackList) {
     return false;
@@ -460,16 +455,19 @@ const isValidButtonGroup = (buttonGroup) => {
     return false;
   }
 
-  const childButtonNodes = Array.from(buttonGroup.childNodes)
-    .filter((node) => node.className);
+  const childButtonNodes = Array.from(buttonGroup.childNodes).filter(
+    (node) => node.className
+  );
 
   // related tracks, profile likes...
-  const isSideTrack = childButtonNodes.length === 2
-    && childButtonNodes[0]?.classList?.contains("sc-button-like")
+  const isSideTrack =
+    childButtonNodes.length === 2 &&
+    childButtonNodes[0]?.classList?.contains("sc-button-like");
 
   // your latest upload...
   const isPersonalTrack = childButtonNodes.some((node) =>
-    node.classList?.contains("sc-button-upload"));
+    node.classList?.contains("sc-button-upload")
+  );
 
   return !isSideTrack && !isPersonalTrack;
 };
@@ -488,36 +486,45 @@ const insertDownloadButtons = () => {
   downloadButton.setAttribute("tabindex", "0");
   downloadButton.setAttribute("aria-label", "Download");
   downloadButton.setAttribute("role", "button");
-  
+
   // create SVG icon
-  const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const svgElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
+  );
   svgElement.setAttribute("viewBox", "0 0 16 16");
   svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svgElement.setAttribute("aria-hidden", "true");
-  
+
   // create download icon path
-  const pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  pathElement.setAttribute("d", "M8 15A7 7 0 108 1a7 7 0 000 14zm3.47-7.53l1.06 1.06L8 13.06 3.47 8.53l1.06-1.06 2.72 2.72V3h1.5v7.19l2.72-2.72z");
+  const pathElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "path"
+  );
+  pathElement.setAttribute(
+    "d",
+    "M8 15A7 7 0 108 1a7 7 0 000 14zm3.47-7.53l1.06 1.06L8 13.06 3.47 8.53l1.06-1.06 2.72 2.72V3h1.5v7.19l2.72-2.72z"
+  );
   pathElement.setAttribute("fill", "currentColor");
   pathElement.setAttribute("stroke-width", "1.5");
   pathElement.setAttribute("stroke-linecap", "round");
   pathElement.setAttribute("stroke-linejoin", "round");
-  
+
   svgElement.appendChild(pathElement);
-  
+
   // create div to contain SVG
   const divElement = document.createElement("div");
   divElement.appendChild(svgElement);
-  
+
   // create visually hidden label
   const labelElement = document.createElement("span");
   labelElement.classList.add("sc-button-label", "sc-visuallyhidden");
   labelElement.textContent = "Download";
-  
+
   // add elements to button
   downloadButton.appendChild(divElement);
   downloadButton.appendChild(labelElement);
-  
+
   // add classes
   downloadButton.classList.add(
     "sc-button-download",
@@ -547,7 +554,9 @@ const insertDownloadButtons = () => {
 
     downloadButtonClone.addEventListener(
       "click",
-      () => { downloadTrack(downloadButtonClone); },
+      () => {
+        downloadTrack(downloadButtonClone);
+      },
       true
     );
 
@@ -577,11 +586,11 @@ const setClientId = async () => {
     try {
       const res = await fetch(src);
       if (!res.ok) continue;
-  
+
       const data = await res.text();
       const match = data.match(regex);
       const clientId = match?.[1];
-  
+
       if (clientId) {
         window.SCDL__CLIENT_ID = clientId;
         return;
