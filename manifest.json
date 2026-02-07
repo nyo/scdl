@@ -1,25 +1,34 @@
 {
-	"manifest_version": 2,
-	"name": "SoundCloud Downloader",
-	"version": "2.5",
-	"description": "Download SoundCloud songs as mp3s with normalized metadata.",
-	"homepage_url": "https://github.com/nyo/scdl",
-	"icons": {
-		"48": "icons/icon-48.png",
-		"64": "icons/icon-64.png",
-		"96": "icons/icon-96.png",
-		"128": "icons/icon-128.png"
-	},
-	"permissions": [
-		"*://*.soundcloud.com/*",
-		"*://*.sndcdn.com/*",
-		"webRequest"
-	],
-	"content_scripts": [
-		{
-			"matches": ["*://*.soundcloud.com/*"],
-			"js": ["index.js", "libs/browser-id3-writer.js", "libs/FileSaver.min.js"],
-			"run_at": "document_idle"
-		}
-	]
+  "manifest_version": 2,
+  "name": "SoundCloud Downloader",
+  "version": "2.5",
+  "description": "Download SoundCloud songs as mp3s with normalized metadata.",
+  "homepage_url": "https://github.com/nyo/scdl",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "scdl@nyo.github.io"
+    }
+  },
+  "icons": {
+    "48": "icons/icon-48.png",
+    "64": "icons/icon-64.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "*://*.soundcloud.com/*",
+    "*://*.sndcdn.com/*",
+    "webRequest",
+    "storage"
+  ],
+  "options_ui": {
+    "page": "options.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.soundcloud.com/*"],
+      "js": ["index.js", "libs/browser-id3-writer.js", "libs/FileSaver.min.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

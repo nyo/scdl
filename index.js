@@ -15,6 +15,26 @@ const logger = {
   error: console.error.bind(console, SCDL_LOG_PREFIX)
 }
 
+const SCDL__FORMAT_DEFAULTS = {
+  format: "{artist} - {title}",
+  lowercase: true
+};
+
+const applyFormat = (format, data) => {
+  return format.replace(/\{(\w+)\}/g, (_, token) => {
+    return data[token] !== undefined && data[token] !== null
+      ? data[token]
+      : "";
+  });
+};
+
+const sanitizeFilename = (filename) => {
+  return filename
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 /**
  * Check every second for new loaded tracks in the page.
  * Add download button if the page url has changed, or if new tracks
@@ -55,7 +75,7 @@ window.addEventListener("beforeunload", () => {
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
  */
-const tagAndSaveTrack = (trackBuffer, artworkBuffer, metadata) => {
+const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
   const writer = new ID3Writer(trackBuffer);
 
   const songArtist = metadata.publisher_metadata?.artist
@@ -117,10 +137,33 @@ const tagAndSaveTrack = (trackBuffer, artworkBuffer, metadata) => {
 
   writer.addTag();
 
-  saveAs(
-    writer.getBlob(),
-    `${songArtist} - ${songTitle}.mp3`.toLowerCase()
-  );
+  let settings;
+  try {
+    settings = await browser.storage.sync.get(SCDL__FORMAT_DEFAULTS);
+  } catch (err) {
+    logger.error("Failed to read settings, using defaults.", err);
+    settings = SCDL__FORMAT_DEFAULTS;
+  }
+
+  const tokenData = {
+    artist: songArtist || "",
+    title: songTitle || "",
+    year: albumReleaseYear || "",
+    genre: songGenre || "",
+    album: metadata.publisher_metadata?.album_title || "",
+    username: metadata.user?.username || "",
+    comment: songDescription || ""
+  };
+
+  let filename = applyFormat(settings.format, tokenData);
+
+  if (settings.lowercase) {
+    filename = filename.toLowerCase();
+  }
+
+  filename = sanitizeFilename(filename) || "untitled";
+
+  saveAs(writer.getBlob(), `${filename}.mp3`);
 
   writer.revokeURL(); // memory control
 };
@@ -174,7 +217,7 @@ const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
         const blob = new Blob(arrayBuffers);
         const trackArrayBuffer = await blobToArrayBuffer(blob);
 
-        tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
+        await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
       });
   };
 
@@ -197,7 +240,7 @@ const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
 
   const trackBuffer = await trackRes.arrayBuffer();
 
-  tagAndSaveTrack(trackBuffer, artworkBuffer, metadata);
+  await tagAndSaveTrack(trackBuffer, artworkBuffer, metadata);
 };
 
 /**
