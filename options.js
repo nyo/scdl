@@ -2,7 +2,7 @@
 
 const DEFAULTS = {
   format: "{artist} - {title}",
-  lowercase: true,
+  lowercase: false,
 };
 
 const EXAMPLE_DATA = {
