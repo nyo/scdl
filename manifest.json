@@ -6,7 +6,10 @@
   "homepage_url": "https://github.com/nyo/scdl",
   "browser_specific_settings": {
     "gecko": {
-      "id": "{1405c5cf-42c1-46e4-a151-665e871412b5}"
+      "id": "{1405c5cf-42c1-46e4-a151-665e871412b5}",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "icons": {
