@@ -1,10 +1,5 @@
 "use strict";
 
-const DEFAULTS = {
-  format: "{artist} - {title}",
-  lowercase: false,
-};
-
 const EXAMPLE_DATA = {
   artist: "Daft Punk",
   title: "Around The World",
@@ -21,12 +16,6 @@ const previewText = document.getElementById("preview-text");
 const saveButton = document.getElementById("save");
 const saveStatus = document.getElementById("save-status");
 
-const applyFormat = (format, data) => {
-  return format.replace(/\{(\w+)\}/g, (_, token) => {
-    return data[token] !== undefined && data[token] !== null ? data[token] : "";
-  });
-};
-
 const showStatus = (message, isSuccess = true, duration = null) => {
   saveStatus.textContent = message;
   saveStatus.className = `setting-section-save-status ${
@@ -42,7 +31,7 @@ const showStatus = (message, isSuccess = true, duration = null) => {
 };
 
 const updatePreview = () => {
-  const format = formatInput.value || DEFAULTS.format;
+  const format = formatInput.value || SCDL__FORMAT_DEFAULTS.format;
   let filename = applyFormat(format, EXAMPLE_DATA);
 
   if (lowercaseCheckbox.checked) {
@@ -54,7 +43,7 @@ const updatePreview = () => {
 
 const saveSettings = () => {
   const settings = {
-    format: formatInput.value || DEFAULTS.format,
+    format: formatInput.value || SCDL__FORMAT_DEFAULTS.format,
     lowercase: lowercaseCheckbox.checked,
   };
 
@@ -69,7 +58,7 @@ const saveSettings = () => {
 
 const loadSettings = () => {
   browser.storage.sync
-    .get(DEFAULTS)
+    .get(SCDL__FORMAT_DEFAULTS)
     .then((settings) => {
       formatInput.value = settings.format;
       lowercaseCheckbox.checked = settings.lowercase;
@@ -77,8 +66,8 @@ const loadSettings = () => {
     })
     .catch((error) => {
       // Fallback to defaults and show error
-      formatInput.value = DEFAULTS.format;
-      lowercaseCheckbox.checked = DEFAULTS.lowercase;
+      formatInput.value = SCDL__FORMAT_DEFAULTS.format;
+      lowercaseCheckbox.checked = SCDL__FORMAT_DEFAULTS.lowercase;
       updatePreview();
 
       const errorMsg = error?.message || String(error);

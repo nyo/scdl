@@ -15,17 +15,6 @@ const logger = {
   error: console.error.bind(console, SCDL_LOG_PREFIX),
 };
 
-const SCDL__FORMAT_DEFAULTS = {
-  format: "{artist} - {title}",
-  lowercase: true,
-};
-
-const applyFormat = (format, data) => {
-  return format.replace(/\{(\w+)\}/g, (_, token) => {
-    return data[token] !== undefined && data[token] !== null ? data[token] : "";
-  });
-};
-
 const sanitizeFilename = (filename) => {
   return filename
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")

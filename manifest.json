@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SoundCloud Downloader",
-  "version": "2.6",
+  "version": "2.6.1",
   "description": "Download SoundCloud songs as mp3s with normalized metadata.",
   "homepage_url": "https://github.com/nyo/scdl",
   "browser_specific_settings": {
@@ -30,7 +30,12 @@
   "content_scripts": [
     {
       "matches": ["*://*.soundcloud.com/*"],
-      "js": ["index.js", "libs/browser-id3-writer.js", "libs/FileSaver.min.js"],
+      "js": [
+        "shared.js",
+        "index.js",
+        "libs/browser-id3-writer.js",
+        "libs/FileSaver.min.js"
+      ],
       "run_at": "document_idle"
     }
   ]
