@@ -1,11 +1,11 @@
 # SoundCloud Downloader
 
-![GitHub manifest version](https://img.shields.io/github/manifest-json/v/nyo/scdl/main)
-![Mozilla Add-on](https://img.shields.io/amo/v/scdl)
-![Mozilla Add-on](https://img.shields.io/amo/users/scdl)
 ![Mozilla Add-on](https://img.shields.io/amo/stars/scdl)
+![Mozilla Add-on](https://img.shields.io/amo/users/scdl)
+![Mozilla Add-on](https://img.shields.io/amo/v/scdl)
+![GitHub manifest version](https://img.shields.io/github/manifest-json/v/nyo/scdl/main)
 
-Firefox add-on that adds an instant download button under SoundCloud tracks.
+Firefox add-on that adds an instant download button under SoundCloud tracks
 
 ## Get it now!
 
@@ -18,7 +18,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 - ✅ Customizable file name format (see Preferences tab in `about:addons`)
 - ✅ Works with private tracks
 - ✅ Supports both `progressive` and `hls` transcoding formats
-- ✅ Lightweight (~20 Ko)
+- ✅ Lightweight (~29 KB)
 - ✅ No data sent to third party, everything is done client-side, in your browser
 - ✅ No need to be premium or even logged in to download tracks!
 
@@ -46,5 +46,3 @@ bash build.sh # creates a `scdl-{version}.zip` file
 
 - [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) for mp3s tagging
 - [FileSaver.js](https://github.com/eligrey/FileSaver.js) for saving files client-side
-
-_Happy digging!_
