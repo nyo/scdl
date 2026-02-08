@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #fff;
+        --fg: #15141a;
+        --fg-muted: #5b5b66;
+        --input-bg: #fff;
+        --input-border: #cfcfd8;
+        --surface: #f0f0f4;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #23222b;
+          --fg: #fbfbfe;
+          --fg-muted: #86868c;
+          --input-bg: #42414d;
+          --input-border: #5b5b66;
+          --surface: #2b2a33;
+        }
+      }
+
+      body {
+        margin: 16px 4px;
+        font-size: 15px;
+        color: var(--fg);
+        background: var(--bg);
+      }
+
+      .setting-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .setting-section-hint {
+        color: var(--fg-muted);
+      }
+
+      .setting-section-hint code {
+        background: var(--surface);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+
+      .setting-section input[type="text"] {
+        padding: 6px 6px;
+        margin: 4px 0;
+        border: 1px solid var(--input-border);
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 13px;
+        box-sizing: border-box;
+        background: var(--input-bg);
+        color: var(--fg);
+      }
+
+      .setting-section input[type="text"]:focus {
+        outline: none;
+      }
+
+      .setting-section-preview {
+        padding: 8px 10px;
+        background: var(--surface);
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        word-break: break-all;
+      }
+
+      .setting-section-save-container {
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+      }
+
+      .setting-section-save-container button {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 2px;
+        background: rgb(72, 72, 84);
+        color: var(--fg);
+        text-align: center;
+        cursor: pointer;
+      }
+
+      .setting-section-save-container button:active {
+        opacity: 0.7;
+      }
+
+      .setting-section-save-status {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .setting-section-save-status.success {
+        color: #12bc00;
+      }
+
+      .setting-section-save-status.error {
+        color: #e22850;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="setting-section">
+      Filename format
+      <input
+        type="text"
+        id="format"
+        placeholder="{artist} - {title}"
+        value="{artist} - {title}"
+      />
+      <div>
+        <input type="checkbox" id="lowercase" />
+        <label for="lowercase">Convert to lowercase</label>
+      </div>
+      <div class="setting-section-hint">
+        Available tokens:
+        <code>{artist}</code>
+        <code>{title}</code>
+        <code>{year}</code>
+        <code>{genre}</code>
+        <code>{album}</code>
+        <code>{username}</code>
+        <code>{comment}</code>
+      </div>
+      <div class="setting-section-hint">
+        Preview: <code id="preview-text"></code>
+      </div>
+      <div class="setting-section-save-container">
+        <button id="save">Save</button>
+        <span id="save-status" class="setting-section-save-status"></span>
+      </div>
+    </div>
+    <script src="options.js"></script>
+  </body>
+</html>
