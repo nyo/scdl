@@ -266,6 +266,20 @@ const fetchStreamData = async (transcodings) => {
     return acc;
   }, []);
 
+  // soundcloud advertises encrypted-only transcodings for DRM-protected tracks;
+  // no mp3 stream is ever offered for those.
+  const hasEncryptedTranscoding = transcodings.some((t) =>
+    t.format?.protocol?.includes("encrypted")
+  );
+
+  if (filteredTranscodings.length === 0) {
+    throw new Error(
+      hasEncryptedTranscoding
+        ? "This track is DRM-protected by SoundCloud and cannot be downloaded."
+        : "No supported transcoding found for this track."
+    );
+  }
+
   for (const transcoding of filteredTranscodings) {
     logger.info(
       `Trying with '${transcoding.format?.protocol}' transcoding ('${transcoding.format?.mime_type}' MIME type)...`
@@ -282,9 +296,19 @@ const fetchStreamData = async (transcodings) => {
 
       return { ...streamData, ...transcoding.format };
     }
+
+    logger.info(
+      `→ '${transcoding.format?.protocol}' returned HTTP ${streamRes.status}`
+    );
   }
 
-  throw new Error("Failed to get stream data from transcoding URL...");
+  // legacy mp3 transcodings advertised but every endpoint 404'd:
+  // soundcloud is dropping unencrypted streams for tracks moved under DRM
+  throw new Error(
+    hasEncryptedTranscoding
+      ? "SoundCloud no longer serves an unencrypted stream for this track (DRM-protected)."
+      : "All transcoding endpoints failed (track may be region-locked or removed)."
+  );
 };
 
 /**
@@ -362,6 +386,30 @@ const getTrackURL = (buttonElement) => {
   return trackURL.startsWith("https://soundcloud.com")
     ? trackURL
     : "https://soundcloud.com" + trackURL;
+};
+
+/**
+ * Briefly turn the download button red and surface the error message via
+ * its title attribute. Clears any pending reset so rapid clicks don't
+ * cause the button to revert to its normal state mid-error.
+ * @param {HTMLElement} button
+ * @param {string} message
+ */
+const showErrorFeedback = (button, message) => {
+  if (button._scdlResetTimeout) {
+    clearTimeout(button._scdlResetTimeout);
+  }
+
+  button.title = message;
+  button.style.backgroundColor = "#ff0000";
+  button.style.color = "#fff";
+
+  button._scdlResetTimeout = setTimeout(() => {
+    button.style.backgroundColor = "";
+    button.style.color = "";
+    button.title = "";
+    button._scdlResetTimeout = null;
+  }, 5000);
 };
 
 /**
@@ -543,8 +591,13 @@ const insertDownloadButtons = () => {
 
     downloadButtonClone.addEventListener(
       "click",
-      () => {
-        downloadTrack(downloadButtonClone);
+      async () => {
+        try {
+          await downloadTrack(downloadButtonClone);
+        } catch (err) {
+          logger.error(err);
+          showErrorFeedback(downloadButtonClone, err.message);
+        }
       },
       true
     );
