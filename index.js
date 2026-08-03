@@ -518,6 +518,36 @@ const isValidButtonGroup = (buttonGroup) => {
 };
 
 /**
+ * Build the download SVG icon used by the classic-layout download button.
+ * @returns {SVGSVGElement}
+ */
+const createDownloadIconSvg = () => {
+  const svgElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
+  );
+  svgElement.setAttribute("viewBox", "0 0 16 16");
+  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svgElement.setAttribute("aria-hidden", "true");
+
+  const pathElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "path"
+  );
+  pathElement.setAttribute(
+    "d",
+    "M8 15A7 7 0 108 1a7 7 0 000 14zm3.47-7.53l1.06 1.06L8 13.06 3.47 8.53l1.06-1.06 2.72 2.72V3h1.5v7.19l2.72-2.72z"
+  );
+  pathElement.setAttribute("fill", "currentColor");
+  pathElement.setAttribute("stroke-width", "1.5");
+  pathElement.setAttribute("stroke-linecap", "round");
+  pathElement.setAttribute("stroke-linejoin", "round");
+
+  svgElement.appendChild(pathElement);
+  return svgElement;
+};
+
+/**
  * Insert 'Download' button(s) in the DOM wherever there is a group
  * of buttons that appear to be linked to a track.
  * The size of each button is determined from the size of the buttons of the group.
@@ -533,29 +563,7 @@ const insertDownloadButtons = () => {
   downloadButton.setAttribute("role", "button");
 
   // create SVG icon
-  const svgElement = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "svg"
-  );
-  svgElement.setAttribute("viewBox", "0 0 16 16");
-  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  svgElement.setAttribute("aria-hidden", "true");
-
-  // create download icon path
-  const pathElement = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "path"
-  );
-  pathElement.setAttribute(
-    "d",
-    "M8 15A7 7 0 108 1a7 7 0 000 14zm3.47-7.53l1.06 1.06L8 13.06 3.47 8.53l1.06-1.06 2.72 2.72V3h1.5v7.19l2.72-2.72z"
-  );
-  pathElement.setAttribute("fill", "currentColor");
-  pathElement.setAttribute("stroke-width", "1.5");
-  pathElement.setAttribute("stroke-linecap", "round");
-  pathElement.setAttribute("stroke-linejoin", "round");
-
-  svgElement.appendChild(pathElement);
+  const svgElement = createDownloadIconSvg();
 
   // create div to contain SVG
   const divElement = document.createElement("div");
