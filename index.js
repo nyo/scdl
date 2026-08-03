@@ -33,7 +33,9 @@ const watchNewTracksInterval = setInterval(() => {
 
     const pageUrl = document.URL;
     const pageButtonGroups = document.getElementsByClassName("sc-button-group");
-    const nbPageButtonGroups = pageButtonGroups?.length;
+    const muiMoreMenuButtons = document.querySelectorAll('[aria-label="More menu"]');
+    const nbPageButtonGroups =
+      (pageButtonGroups?.length ?? 0) + (muiMoreMenuButtons?.length ?? 0);
 
     if (
       window.SCDL__CLIENT_ID &&
@@ -41,6 +43,7 @@ const watchNewTracksInterval = setInterval(() => {
         nbPageButtonGroups !== window.SCDL__NB_PAGE_BUTTON_GROUP)
     ) {
       insertDownloadButtons();
+      insertMuiDownloadButtons();
       window.SCDL__LAST_URL = pageUrl;
       window.SCDL__NB_PAGE_BUTTON_GROUP = nbPageButtonGroups;
     }
@@ -788,6 +791,40 @@ const createMuiDownloadButton = () => {
   button.appendChild(createMuiDownloadIconSvg());
 
   return button;
+};
+
+/**
+ * Insert 'Download' button(s) into the MUI-based track player's
+ * action-buttons row(s), mirroring insertDownloadButtons() for the
+ * classic layout. Runs independently of, and never touches, the
+ * classic-layout insertion above - the two paths share no selectors,
+ * classnames, or DOM nodes.
+ */
+const insertMuiDownloadButtons = () => {
+  const containers = getMuiActionsContainers();
+
+  for (const container of containers) {
+    const downloadButton = createMuiDownloadButton();
+    const moreMenuButton = container.querySelector('[aria-label="More menu"]');
+
+    downloadButton.addEventListener(
+      "click",
+      async () => {
+        try {
+          await downloadTrack(downloadButton);
+        } catch (err) {
+          logger.error(err);
+          showErrorFeedback(downloadButton, err.message);
+        }
+      },
+      true
+    );
+
+    // insert before "More menu" so it stays last, matching the
+    // overflow-menu-trails-everything-else convention of its siblings
+    container.insertBefore(downloadButton, moreMenuButton);
+    window.SCDL__DOM_ELEMENTS.push(container);
+  }
 };
 
 /**
