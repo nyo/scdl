@@ -641,11 +641,14 @@ const isThirdPartyEmbed = () => {
 };
 
 /**
- * Try to find the SoundCloud clientId for the current
- * user session, and set it to `window.SCDL__CLIENT_ID`.
+ * Scan a document's <script> tags for a SoundCloud asset bundle
+ * (sndcdn.com/assets/<id>), fetching each candidate until one's
+ * contents reveal the session's clientId.
+ * @param {Document} doc
+ * @returns {Promise<string|undefined>}
  */
-const setClientId = async () => {
-  const scriptElements = document.getElementsByTagName("script");
+const findClientIdInDocument = async (doc) => {
+  const scriptElements = doc.getElementsByTagName("script");
   const scriptSources = Array.from(scriptElements).reduce(
     (acc, elem) =>
       elem.src.match(/sndcdn.com\/assets\/[0-9][0-9]*/g)
@@ -666,16 +669,27 @@ const setClientId = async () => {
       const match = data.match(regex);
       const clientId = match?.[1];
 
-      if (clientId) {
-        window.SCDL__CLIENT_ID = clientId;
-        return;
-      }
+      if (clientId) return clientId;
     } catch (err) {
       continue; // ignore fetch errors and keep trying
     }
   }
 
-  throw new Error("Failed to find SoundCloud clientId...");
+  return undefined;
+};
+
+/**
+ * Try to find the SoundCloud clientId for the current
+ * user session, and set it to `window.SCDL__CLIENT_ID`.
+ */
+const setClientId = async () => {
+  const clientId = await findClientIdInDocument(document);
+
+  if (!clientId) {
+    throw new Error("Failed to find SoundCloud clientId...");
+  }
+
+  window.SCDL__CLIENT_ID = clientId;
 };
 
 (async () => {
