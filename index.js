@@ -649,13 +649,10 @@ const isThirdPartyEmbed = () => {
  */
 const findClientIdInDocument = async (doc) => {
   const scriptElements = doc.getElementsByTagName("script");
-  const scriptSources = Array.from(scriptElements).reduce(
-    (acc, elem) =>
-      elem.src.match(/sndcdn.com\/assets\/[0-9][0-9]*/g)
-        ? [...acc, elem.src]
-        : acc,
-    []
-  );
+  const scriptSources = Array.from(scriptElements).reduce((acc, elem) => {
+    const src = elem.getAttribute("src") || "";
+    return src.match(/sndcdn.com\/assets\/[0-9][0-9]*/g) ? [...acc, src] : acc;
+  }, []);
 
   // iterate through all the scripts and
   // fetch each one until finding the clientId
@@ -679,24 +676,47 @@ const findClientIdInDocument = async (doc) => {
 };
 
 /**
- * Try to find the SoundCloud clientId for the current
- * user session, and set it to `window.SCDL__CLIENT_ID`.
+ * Try to find the SoundCloud clientId for the current user session, and
+ * set it to `window.SCDL__CLIENT_ID`.
+ *
+ * On the redesigned track player, which renders inside a same-origin
+ * iframe, this frame's own document never references a sndcdn.com/assets
+ * bundle (the new app's scripts are served from a different host
+ * entirely). So a sub-frame goes straight to fetching and scanning the
+ * top-level page's document instead, which is still the classic app shell
+ * and does reference one; the top frame scans its own document, same as
+ * always. isThirdPartyEmbed() is checked here too (not just relied on via
+ * the interval) since this function runs unconditionally at startup,
+ * independent of watchNewTracksInterval.
  */
 const setClientId = async () => {
-  const clientId = await findClientIdInDocument(document);
+  let clientId;
+
+  if (window.top === window) {
+    clientId = await findClientIdInDocument(document);
+  } else if (!isThirdPartyEmbed()) {
+    try {
+      const topRes = await fetch(window.top.location.href);
+      const topHtml = await topRes.text();
+      const topDocument = new DOMParser().parseFromString(topHtml, "text/html");
+
+      clientId = await findClientIdInDocument(topDocument);
+    } catch (err) {
+      // network or parse failure - fall through
+    }
+  }
 
   if (!clientId) {
     throw new Error("Failed to find SoundCloud clientId...");
   }
 
   window.SCDL__CLIENT_ID = clientId;
+  logger.info(`Found SoundCloud clientId: ${clientId}`);
 };
 
 (async () => {
   try {
     await setClientId();
-
-    logger.info(`Found SoundCloud clientId: ${window.SCDL__CLIENT_ID}`);
   } catch (err) {
     logger.error(err);
   }
