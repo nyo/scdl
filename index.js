@@ -29,6 +29,8 @@ const sanitizeFilename = (filename) => {
  */
 const watchNewTracksInterval = setInterval(() => {
   try {
+    if (isThirdPartyEmbed()) return;
+
     const pageUrl = document.URL;
     const pageButtonGroups = document.getElementsByClassName("sc-button-group");
     const nbPageButtonGroups = pageButtonGroups?.length;
@@ -604,6 +606,31 @@ const insertDownloadButtons = () => {
 
     buttonGroup.appendChild(downloadButtonClone);
     window.SCDL__DOM_ELEMENTS.push(buttonGroup.parentNode);
+  }
+};
+
+/**
+ * True if this frame is embedded in a page that isn't itself on
+ * soundcloud.com - e.g. a blog post embedding the classic
+ * `w.soundcloud.com` widget player.
+ *
+ * We only need `all_frames: true` (manifest.json) to reach the
+ * redesigned track page's own crossfade iframe. But content_scripts
+ * `matches` is checked per-frame against that frame's own URL, and
+ * `*://*.soundcloud.com/*` also matches `w.soundcloud.com` - so the same
+ * setting that lets us reach the crossfade iframe also injects us into
+ * any other soundcloud.com-hosted iframe anywhere, including that
+ * classic widget embedded on someone else's page, which we have no
+ * reason to touch. This guards against that side effect.
+ * @returns {boolean}
+ */
+const isThirdPartyEmbed = () => {
+  if (window.top === window) return false;
+
+  try {
+    return !/(^|\.)soundcloud\.com$/.test(window.top.location.hostname);
+  } catch (err) {
+    return true; // cross-origin top === definitely not a soundcloud.com page
   }
 };
 
