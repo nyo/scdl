@@ -859,16 +859,20 @@ const findClientIdInDocument = async (doc) => {
  * entirely). So a sub-frame goes straight to fetching and scanning the
  * top-level page's document instead, which is still the classic app shell
  * and does reference one; the top frame scans its own document, same as
- * always. isThirdPartyEmbed() is checked here too (not just relied on via
- * the interval) since this function runs unconditionally at startup,
- * independent of watchNewTracksInterval.
+ * always.
+ *
+ * Does nothing on a third-party embed (isThirdPartyEmbed() checked here
+ * too, not just relied on via the interval, since this function runs
+ * unconditionally at startup) - not an error, just nothing to do.
  */
 const setClientId = async () => {
+  if (isThirdPartyEmbed()) return;
+
   let clientId;
 
   if (window.top === window) {
     clientId = await findClientIdInDocument(document);
-  } else if (!isThirdPartyEmbed()) {
+  } else {
     try {
       const topRes = await fetch(window.top.location.href);
       const topHtml = await topRes.text();
