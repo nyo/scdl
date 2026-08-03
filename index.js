@@ -625,7 +625,7 @@ const insertDownloadButtons = () => {
 
 /**
  * Checks whether the given element is a valid "action buttons" container
- * for the redesigned (MUI-based) track player - the row containing
+ * for the MUI-based track player - the row containing
  * Share / Copy link / Repost / add to playlist / More menu for a track's
  * own header. Comment rows and sidebar mini-tracks have their own "More
  * menu" (or "More actions for this track") button too, but never all
@@ -657,7 +657,7 @@ const isValidMuiActionsContainer = (container) => {
 };
 
 /**
- * Find every valid action-buttons container for the redesigned track
+ * Find every valid action-buttons container for the MUI-based track
  * player currently in the page. There may be more than one: SoundCloud
  * renders a narrow-viewport and a wide-viewport copy of the same track
  * header simultaneously (toggled via CSS breakpoints), only one of
@@ -678,7 +678,7 @@ const getMuiActionsContainers = () => {
  * `w.soundcloud.com` widget player.
  *
  * We only need `all_frames: true` (manifest.json) to reach the
- * redesigned track page's own crossfade iframe. But content_scripts
+ * MUI-based track page's own crossfade iframe. But content_scripts
  * `matches` is checked per-frame against that frame's own URL, and
  * `*://*.soundcloud.com/*` also matches `w.soundcloud.com` - so the same
  * setting that lets us reach the crossfade iframe also injects us into
@@ -736,7 +736,7 @@ const findClientIdInDocument = async (doc) => {
  * Try to find the SoundCloud clientId for the current user session, and
  * set it to `window.SCDL__CLIENT_ID`.
  *
- * On the redesigned track player, which renders inside a same-origin
+ * On the MUI-based track player, which renders inside a same-origin
  * iframe, this frame's own document never references a sndcdn.com/assets
  * bundle (the new app's scripts are served from a different host
  * entirely). So a sub-frame goes straight to fetching and scanning the
