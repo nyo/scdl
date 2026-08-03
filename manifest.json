@@ -30,6 +30,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.soundcloud.com/*"],
+      "all_frames": true,
       "js": [
         "shared.js",
         "index.js",
