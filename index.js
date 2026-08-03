@@ -403,12 +403,21 @@ const getTrackURL = (buttonElement) => {
  * Briefly turn the download button red and surface the error message via
  * its title attribute. Clears any pending reset so rapid clicks don't
  * cause the button to revert to its normal state mid-error.
+ *
+ * Restores whatever backgroundColor/color/title the button had before
+ * the error (captured once, not on repeat clicks while already red) -
+ * not hardcoded empty strings, since the MUI button has its own idle
+ * inline background color and title that aren't "".
  * @param {HTMLElement} button
  * @param {string} message
  */
 const showErrorFeedback = (button, message) => {
   if (button._scdlResetTimeout) {
     clearTimeout(button._scdlResetTimeout);
+  } else {
+    button._scdlIdleBackgroundColor = button.style.backgroundColor;
+    button._scdlIdleColor = button.style.color;
+    button._scdlIdleTitle = button.title;
   }
 
   button.title = message;
@@ -416,9 +425,9 @@ const showErrorFeedback = (button, message) => {
   button.style.color = "#fff";
 
   button._scdlResetTimeout = setTimeout(() => {
-    button.style.backgroundColor = "";
-    button.style.color = "";
-    button.title = "";
+    button.style.backgroundColor = button._scdlIdleBackgroundColor;
+    button.style.color = button._scdlIdleColor;
+    button.title = button._scdlIdleTitle;
     button._scdlResetTimeout = null;
   }, 5000);
 };
