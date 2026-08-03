@@ -712,83 +712,36 @@ const createMuiDownloadIconSvg = () => {
 };
 
 /**
- * Inject the (one-time, idempotent) stylesheet for the MUI-based track
- * player's download button. Its siblings' actual look (Share, Repost,
- * etc.) is defined by their per-build emotion hash class (e.g.
- * `mui-163v5oj`), not by the stable `Mui*-root` component classes - and
- * hash classes are exactly the kind of unstable selector we can't depend
- * on. So rather than inherit that styling, we replicate it: this rule is
- * copied directly from that hash class's own emotion-generated CSS
- * (outline-based "ring", not border; MUI's own dark-theme values are the
- * fallbacks). It references SoundCloud's real theme custom properties
- * (`--mui-palette-contrast-*`, set on `document.documentElement` by its
- * own CssVarsProvider) so the outline ring stays correct even if their
- * theme changes - falling back to today's literal value if that variable
- * is ever renamed. The orange tint is the one exception: it's hardcoded
- * to SoundCloud's classic brand orange (#ff5500, verified against the
- * classic layout's own `sc-button-selected` CSS rule) rather than a
- * theme variable, to deliberately match the extension's other button
- * rather than blend into the MUI layout's own theme. Appended after the
- * page's own stylesheets so it reliably wins any specificity tie.
- */
-const ensureMuiDownloadButtonStyles = () => {
-  if (document.getElementById("scdl-mui-styles")) return;
-
-  const styleElement = document.createElement("style");
-  styleElement.id = "scdl-mui-styles";
-  styleElement.textContent = `
-    .scdl-mui-download-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      box-sizing: border-box;
-      flex: 0 0 auto;
-      margin: 0;
-      border: 0;
-      border-radius: 50%;
-      padding: var(--mui-spacing, 8px);
-      font-size: 1.5rem;
-      background-color: rgba(255, 85, 0, 0.3);
-      outline: 1.5px solid;
-      outline-offset: -1.5px;
-      outline-color: var(--mui-palette-contrast-outlinedBorder, rgba(255, 255, 255, 0.5));
-      color: var(--mui-palette-contrast-contrastText, #fff);
-      text-align: center;
-      text-decoration: none;
-      cursor: pointer;
-      user-select: none;
-      vertical-align: middle;
-      transition:
-        background-color ease-out 300ms,
-        color ease-out 300ms,
-        outline-color ease-out 300ms;
-    }
-    .scdl-mui-download-button:hover {
-      outline-color: var(--mui-palette-contrast-hover, rgba(255, 255, 255, 0.7));
-      background-color: rgba(255, 85, 0, 0.75);
-    }
-  `;
-
-  document.head.appendChild(styleElement);
-};
-
-/**
- * Build a 'Download' icon-button visually matching the MUI-based track
- * player's Share/Copy link/Repost/etc. siblings.
+ * Build a 'Download' icon-button by cloning the "Copy link" button
+ * (always present per isValidMuiActionsContainer) so it inherits that
+ * button's actual per-build styling without us hardcoding any of it.
+ *
+ * Colors are set via inline style, not an injected stylesheet:
+ * SoundCloud's own page script enumerates document.styleSheets and
+ * throws a SecurityError reading cssRules off any stylesheet the
+ * extension adds.
+ * @param {Element} container
  * @returns {HTMLButtonElement}
  */
-const createMuiDownloadButton = () => {
-  ensureMuiDownloadButtonStyles();
+const createMuiDownloadButton = (container) => {
+  const copyLinkButton = container.querySelector('[aria-label="Copy link"]');
+  const button = copyLinkButton.cloneNode(true);
 
-  const button = document.createElement("button");
+  const idleBackground = "rgba(255, 85, 0, 0.6)";
+  const hoverBackground = "rgba(255, 85, 0, 0.9)";
 
-  button.setAttribute("type", "button");
-  button.setAttribute("tabindex", "0");
   button.setAttribute("aria-label", "Download track");
+  button.title = "Download track";
   button.classList.add("scdl-mui-download-button");
+  button.style.backgroundColor = idleBackground;
+  button.replaceChildren(createMuiDownloadIconSvg());
 
-  button.appendChild(createMuiDownloadIconSvg());
+  button.addEventListener("mouseenter", () => {
+    button.style.backgroundColor = hoverBackground;
+  });
+  button.addEventListener("mouseleave", () => {
+    button.style.backgroundColor = idleBackground;
+  });
 
   return button;
 };
@@ -804,7 +757,7 @@ const insertMuiDownloadButtons = () => {
   const containers = getMuiActionsContainers();
 
   for (const container of containers) {
-    const downloadButton = createMuiDownloadButton();
+    const downloadButton = createMuiDownloadButton(container);
     const moreMenuButton = container.querySelector('[aria-label="More menu"]');
 
     downloadButton.addEventListener(
