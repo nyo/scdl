@@ -370,7 +370,13 @@ const getTrackURL = (buttonElement) => {
     .map((selector) => buttonElement.closest(selector))
     .find(Boolean);
 
-  if (!node) return document.URL;
+  if (!node) {
+    // Safe without a try/catch: getTrackURL is only ever reached via a
+    // click handler on a button that watchNewTracksInterval only inserts
+    // after isThirdPartyEmbed() has already confirmed window.top is
+    // accessible and on soundcloud.com.
+    return window.top !== window ? window.top.location.href : document.URL;
+  }
 
   const links = node.querySelectorAll("a");
   const longestValidLink = Array.from(links).reduce(
