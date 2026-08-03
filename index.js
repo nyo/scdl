@@ -624,6 +624,55 @@ const insertDownloadButtons = () => {
 };
 
 /**
+ * Checks whether the given element is a valid "action buttons" container
+ * for the redesigned (MUI-based) track player - the row containing
+ * Share / Copy link / Repost / add to playlist / More menu for a track's
+ * own header. Comment rows and sidebar mini-tracks have their own "More
+ * menu" (or "More actions for this track") button too, but never all
+ * five siblings together, so requiring all five is specific enough
+ * without needing the classic code's blacklist heuristics.
+ *
+ * Also skips containers that already have SoundCloud's own native
+ * "Download track" button - some tracks have downloads natively enabled
+ * by their artist, and we don't want to add a second, redundant button
+ * next to theirs.
+ * @param {Element} container
+ * @returns {boolean}
+ */
+const isValidMuiActionsContainer = (container) => {
+  if (!container || window.SCDL__DOM_ELEMENTS.includes(container)) return false;
+  if (container.querySelector('[aria-label="Download track"]')) return false;
+
+  const requiredAriaLabels = [
+    "Share",
+    "Copy link",
+    "Repost",
+    "add to playlist",
+    "More menu",
+  ];
+
+  return requiredAriaLabels.every((label) =>
+    container.querySelector(`[aria-label="${label}"]`)
+  );
+};
+
+/**
+ * Find every valid action-buttons container for the redesigned track
+ * player currently in the page. There may be more than one: SoundCloud
+ * renders a narrow-viewport and a wide-viewport copy of the same track
+ * header simultaneously (toggled via CSS breakpoints), only one of
+ * which is visible at a time.
+ * @returns {Element[]}
+ */
+const getMuiActionsContainers = () => {
+  const moreMenuButtons = document.querySelectorAll('[aria-label="More menu"]');
+
+  return Array.from(moreMenuButtons)
+    .map((button) => button.parentElement)
+    .filter(isValidMuiActionsContainer);
+};
+
+/**
  * True if this frame is embedded in a page that isn't itself on
  * soundcloud.com - e.g. a blog post embedding the classic
  * `w.soundcloud.com` widget player.
