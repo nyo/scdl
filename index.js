@@ -673,6 +673,124 @@ const getMuiActionsContainers = () => {
 };
 
 /**
+ * Build the download SVG icon used by the MUI-based track player's
+ * button. This is SoundCloud's own icon, copied from its native
+ * "Download track" button (shown on tracks where the artist has enabled
+ * downloads) rather than the classic layout's icon, so ours renders
+ * pixel-consistent with its siblings (Share, Repost, etc. all use the
+ * same 24x24 viewBox convention).
+ * @returns {SVGSVGElement}
+ */
+const createMuiDownloadIconSvg = () => {
+  const svgElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
+  );
+  svgElement.setAttribute("viewBox", "0 0 24 24");
+  svgElement.setAttribute("width", "24");
+  svgElement.setAttribute("height", "24");
+  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svgElement.setAttribute("aria-hidden", "true");
+
+  const pathElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "path"
+  );
+  pathElement.setAttribute("fill", "currentColor");
+  pathElement.setAttribute("fill-rule", "evenodd");
+  pathElement.setAttribute(
+    "d",
+    "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z"
+  );
+  pathElement.setAttribute("clip-rule", "evenodd");
+
+  svgElement.appendChild(pathElement);
+  return svgElement;
+};
+
+/**
+ * Inject the (one-time, idempotent) stylesheet for the MUI-based track
+ * player's download button. Its siblings' actual look (Share, Repost,
+ * etc.) is defined by their per-build emotion hash class (e.g.
+ * `mui-163v5oj`), not by the stable `Mui*-root` component classes - and
+ * hash classes are exactly the kind of unstable selector we can't depend
+ * on. So rather than inherit that styling, we replicate it: this rule is
+ * copied directly from that hash class's own emotion-generated CSS
+ * (outline-based "ring", not border; MUI's own dark-theme values are the
+ * fallbacks). It references SoundCloud's real theme custom properties
+ * (`--mui-palette-contrast-*`, set on `document.documentElement` by its
+ * own CssVarsProvider) so the outline ring stays correct even if their
+ * theme changes - falling back to today's literal value if that variable
+ * is ever renamed. The orange tint is the one exception: it's hardcoded
+ * to SoundCloud's classic brand orange (#ff5500, verified against the
+ * classic layout's own `sc-button-selected` CSS rule) rather than a
+ * theme variable, to deliberately match the extension's other button
+ * rather than blend into the MUI layout's own theme. Appended after the
+ * page's own stylesheets so it reliably wins any specificity tie.
+ */
+const ensureMuiDownloadButtonStyles = () => {
+  if (document.getElementById("scdl-mui-styles")) return;
+
+  const styleElement = document.createElement("style");
+  styleElement.id = "scdl-mui-styles";
+  styleElement.textContent = `
+    .scdl-mui-download-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-sizing: border-box;
+      flex: 0 0 auto;
+      margin: 0;
+      border: 0;
+      border-radius: 50%;
+      padding: var(--mui-spacing, 8px);
+      font-size: 1.5rem;
+      background-color: rgba(255, 85, 0, 0.3);
+      outline: 1.5px solid;
+      outline-offset: -1.5px;
+      outline-color: var(--mui-palette-contrast-outlinedBorder, rgba(255, 255, 255, 0.5));
+      color: var(--mui-palette-contrast-contrastText, #fff);
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+      vertical-align: middle;
+      transition:
+        background-color ease-out 300ms,
+        color ease-out 300ms,
+        outline-color ease-out 300ms;
+    }
+    .scdl-mui-download-button:hover {
+      outline-color: var(--mui-palette-contrast-hover, rgba(255, 255, 255, 0.7));
+      background-color: rgba(255, 85, 0, 0.75);
+    }
+  `;
+
+  document.head.appendChild(styleElement);
+};
+
+/**
+ * Build a 'Download' icon-button visually matching the MUI-based track
+ * player's Share/Copy link/Repost/etc. siblings.
+ * @returns {HTMLButtonElement}
+ */
+const createMuiDownloadButton = () => {
+  ensureMuiDownloadButtonStyles();
+
+  const button = document.createElement("button");
+
+  button.setAttribute("type", "button");
+  button.setAttribute("tabindex", "0");
+  button.setAttribute("aria-label", "Download track");
+  button.classList.add("scdl-mui-download-button");
+
+  button.appendChild(createMuiDownloadIconSvg());
+
+  return button;
+};
+
+/**
  * True if this frame is embedded in a page that isn't itself on
  * soundcloud.com - e.g. a blog post embedding the classic
  * `w.soundcloud.com` widget player.
