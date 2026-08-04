@@ -5,6 +5,8 @@ window.SCDL__LAST_URL = null;
 window.SCDL__NB_CLASSIC_BUTTON_GROUPS = 0;
 window.SCDL__NB_MUI_MENU_BUTTONS = 0;
 window.SCDL__DOM_ELEMENTS = [];
+window.SCDL__ERROR_TOAST_ELEMENT = null;
+window.SCDL__ERROR_TOAST_TIMEOUT = null;
 
 /**
  * Human-readable label for which frame this code is currently running
@@ -418,9 +420,69 @@ const getTrackURL = (buttonElement) => {
 };
 
 /**
+ * Shared "error" red, used for both the toast background and the download
+ * button's error background so they read as the same state.
+ */
+const ERROR_BACKGROUND_COLOR = "#ff0000";
+
+/**
+ * Get the single shared error toast element, creating and appending it to
+ * the page on first use. Reused across errors instead of creating a new
+ * element each time, so a second error while one's still showing just
+ * replaces its message rather than stacking a duplicate on screen.
+ * @returns {HTMLElement}
+ */
+const getErrorToastElement = () => {
+  if (window.SCDL__ERROR_TOAST_ELEMENT) {
+    return window.SCDL__ERROR_TOAST_ELEMENT;
+  }
+
+  const toast = document.createElement("div");
+
+  toast.style.display = "none";
+  toast.style.position = "fixed";
+  toast.style.bottom = "24px";
+  toast.style.right = "24px";
+  toast.style.zIndex = "999999";
+  toast.style.maxWidth = "320px";
+  toast.style.padding = "12px 16px";
+  toast.style.borderRadius = "6px";
+  toast.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  toast.style.color = "#fff";
+  toast.style.fontSize = "14px";
+  toast.style.fontFamily = "sans-serif";
+  toast.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.4)";
+
+  document.body.appendChild(toast);
+  window.SCDL__ERROR_TOAST_ELEMENT = toast;
+
+  return toast;
+};
+
+/**
+ * Show the given message in the shared error toast for 5 seconds. Restarts
+ * the timer on repeat calls instead of stacking timeouts, so a second error
+ * while one's still showing just replaces the message and keeps it visible
+ * for a fresh 5 seconds.
+ * @param {string} message
+ */
+const showErrorToast = (message) => {
+  const toast = getErrorToastElement();
+
+  toast.textContent = message;
+  toast.style.display = "block";
+
+  clearTimeout(window.SCDL__ERROR_TOAST_TIMEOUT);
+  window.SCDL__ERROR_TOAST_TIMEOUT = setTimeout(() => {
+    toast.style.display = "none";
+  }, 5000);
+};
+
+/**
  * Briefly turn the download button red and surface the error message via
- * its title attribute. Clears any pending reset so rapid clicks don't
- * cause the button to revert to its normal state mid-error.
+ * its title attribute and a screen-corner toast (so it's visible without
+ * hovering). Clears any pending reset so rapid clicks don't cause the
+ * button to revert to its normal state mid-error.
  *
  * Restores whatever backgroundColor/color/title the button had before
  * the error (captured once, not on repeat clicks while already red) -
@@ -430,6 +492,8 @@ const getTrackURL = (buttonElement) => {
  * @param {string} message
  */
 const showDownloadErrorFeedback = (button, message) => {
+  showErrorToast(message);
+
   if (button._scdlResetTimeout) {
     clearTimeout(button._scdlResetTimeout);
   } else {
@@ -441,7 +505,7 @@ const showDownloadErrorFeedback = (button, message) => {
   }
 
   button.title = message;
-  button.style.backgroundColor = "#ff0000";
+  button.style.backgroundColor = ERROR_BACKGROUND_COLOR;
   button.style.color = "#fff";
 
   button._scdlResetTimeout = setTimeout(() => {
