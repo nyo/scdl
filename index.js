@@ -467,7 +467,7 @@ const downloadTrack = async (buttonElement) => {
   const trackUrl = streamDataUrl.toString();
 
   if (streamData.protocol === "progressive") {
-    resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
+    await resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
   } else if (streamData.protocol === "hls") {
     resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
   } else {
