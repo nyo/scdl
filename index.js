@@ -433,9 +433,11 @@ const showErrorFeedback = (button, message) => {
   if (button._scdlResetTimeout) {
     clearTimeout(button._scdlResetTimeout);
   } else {
-    button._scdlIdleBackgroundColor = button.style.backgroundColor;
-    button._scdlIdleColor = button.style.color;
-    button._scdlIdleTitle = button.title;
+    button._scdlIdleState = {
+      backgroundColor: button.style.backgroundColor,
+      color: button.style.color,
+      title: button.title,
+    };
   }
 
   button.title = message;
@@ -443,9 +445,9 @@ const showErrorFeedback = (button, message) => {
   button.style.color = "#fff";
 
   button._scdlResetTimeout = setTimeout(() => {
-    button.style.backgroundColor = button._scdlIdleBackgroundColor;
-    button.style.color = button._scdlIdleColor;
-    button.title = button._scdlIdleTitle;
+    button.style.backgroundColor = button._scdlIdleState.backgroundColor;
+    button.style.color = button._scdlIdleState.color;
+    button.title = button._scdlIdleState.title;
     button._scdlResetTimeout = null;
   }, 5000);
 };
