@@ -484,6 +484,27 @@ const downloadTrack = async (buttonElement) => {
 };
 
 /**
+ * Wire up a download button's click handler: run downloadTrack, and on
+ * failure log the error and flash the button red via showErrorFeedback.
+ * Shared by both the classic and MUI insertion paths.
+ * @param {HTMLElement} button
+ */
+const attachDownloadClickHandler = (button) => {
+  button.addEventListener(
+    "click",
+    async () => {
+      try {
+        await downloadTrack(button);
+      } catch (err) {
+        logger.error(err);
+        showErrorFeedback(button, err.message);
+      }
+    },
+    true
+  );
+};
+
+/**
  * Checks whether the given button group should be
  * appended a child download button.
  * Skip duplicates, and groups that are not directly linked to a track.
@@ -638,18 +659,7 @@ const insertDownloadButtons = () => {
       );
     }
 
-    downloadButtonClone.addEventListener(
-      "click",
-      async () => {
-        try {
-          await downloadTrack(downloadButtonClone);
-        } catch (err) {
-          logger.error(err);
-          showErrorFeedback(downloadButtonClone, err.message);
-        }
-      },
-      true
-    );
+    attachDownloadClickHandler(downloadButtonClone);
 
     buttonGroup.appendChild(downloadButtonClone);
     window.SCDL__DOM_ELEMENTS.push(buttonGroup.parentNode);
@@ -822,18 +832,7 @@ const insertMuiDownloadButtons = () => {
     const downloadButton = createMuiDownloadButton(container);
     const moreMenuButton = container.querySelector(MUI_MENU_TRIGGER_SELECTOR);
 
-    downloadButton.addEventListener(
-      "click",
-      async () => {
-        try {
-          await downloadTrack(downloadButton);
-        } catch (err) {
-          logger.error(err);
-          showErrorFeedback(downloadButton, err.message);
-        }
-      },
-      true
-    );
+    attachDownloadClickHandler(downloadButton);
 
     // insert before "More menu" so it stays last, matching the
     // overflow-menu-trails-everything-else convention of its siblings
