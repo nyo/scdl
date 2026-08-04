@@ -6,13 +6,23 @@ window.SCDL__NB_PAGE_BUTTON_GROUP = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
+ * Human-readable label for which frame this code is currently running
+ * in - "top frame" or "iframe" - since watchNewTracksInterval and
+ * setClientId both run once per frame (every frame the content script
+ * gets injected into runs its own independent copy of this whole
+ * script), so every log benefits from knowing which one it's from.
+ * @returns {string}
+ */
+const getFrameLabel = () => (window.top === window ? "top frame" : "iframe");
+
+/**
  * Define custom logger object for logging
  * with a prefixed tag to differenciate add-on logs.
  */
 const SCDL_LOG_PREFIX = "[scdl]";
 const logger = {
-  info: console.info.bind(console, SCDL_LOG_PREFIX),
-  error: console.error.bind(console, SCDL_LOG_PREFIX),
+  info: console.info.bind(console, SCDL_LOG_PREFIX, `(${getFrameLabel()})`),
+  error: console.error.bind(console, SCDL_LOG_PREFIX, `(${getFrameLabel()})`),
 };
 
 const sanitizeFilename = (filename) => {
@@ -603,10 +613,13 @@ const insertDownloadButtons = () => {
 
   // get all button groups in the page
   const buttonGroups = document.getElementsByClassName("sc-button-group");
+  const validButtonGroups = Array.from(buttonGroups).filter(isValidButtonGroup);
 
-  for (const buttonGroup of buttonGroups) {
-    if (!isValidButtonGroup(buttonGroup)) continue;
+  logger.info(
+    `Classic: ${buttonGroups.length} button group(s) found, ${validButtonGroups.length} valid`
+  );
 
+  for (const buttonGroup of validButtonGroups) {
     const downloadButtonClone = downloadButton.cloneNode(true);
 
     // change button size if needed
@@ -763,7 +776,12 @@ const createMuiDownloadButton = (container) => {
  * classnames, or DOM nodes.
  */
 const insertMuiDownloadButtons = () => {
+  const moreMenuButtonCount = document.querySelectorAll('[aria-label="More menu"]').length;
   const containers = getMuiActionsContainers();
+
+  logger.info(
+    `MUI: ${moreMenuButtonCount} "More menu" button(s) found, ${containers.length} valid action row(s)`
+  );
 
   for (const container of containers) {
     const downloadButton = createMuiDownloadButton(container);
@@ -866,7 +884,10 @@ const findClientIdInDocument = async (doc) => {
  * unconditionally at startup) - not an error, just nothing to do.
  */
 const setClientId = async () => {
-  if (isThirdPartyEmbed()) return;
+  if (isThirdPartyEmbed()) {
+    logger.info("Third-party embed, not soundcloud.com - nothing to do here");
+    return;
+  }
 
   let clientId;
 
@@ -890,11 +911,7 @@ const setClientId = async () => {
 
   window.SCDL__CLIENT_ID = clientId;
 
-  // Logged per-frame - seeing this twice with the same clientId is
-  // expected on the redesigned track page (once for the top frame, once
-  // for its iframe), not a duplicate log call.
-  const source = window.top === window ? "top frame" : "iframe";
-  logger.info(`Found SoundCloud clientId (${source}): ${clientId}`);
+  logger.info(`Found SoundCloud clientId: ${clientId}`);
 };
 
 (async () => {
