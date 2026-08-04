@@ -685,32 +685,25 @@ const createDownloadIconSvg = () => {
  * The size of each button is determined from the size of the buttons of the group.
  */
 const insertDownloadButtons = () => {
-  // create the new download button to be inserted
   const downloadButton = document.createElement("button");
 
-  // set button attributes
   downloadButton.setAttribute("type", "button");
   downloadButton.setAttribute("tabindex", "0");
   downloadButton.setAttribute("aria-label", "Download");
   downloadButton.setAttribute("role", "button");
 
-  // create SVG icon
   const svgElement = createDownloadIconSvg();
 
-  // create div to contain SVG
   const divElement = document.createElement("div");
   divElement.appendChild(svgElement);
 
-  // create visually hidden label
   const labelElement = document.createElement("span");
   labelElement.classList.add("sc-button-label", "sc-visuallyhidden");
   labelElement.textContent = "Download";
 
-  // add elements to button
   downloadButton.appendChild(divElement);
   downloadButton.appendChild(labelElement);
 
-  // add classes
   downloadButton.classList.add(
     "sc-button-download",
     "sc-button-secondary",
@@ -721,7 +714,6 @@ const insertDownloadButtons = () => {
     "sc-button-selected" // set icon color to soundcloud orange
   );
 
-  // get all button groups in the page
   const buttonGroups = document.getElementsByClassName("sc-button-group");
   const validButtonGroups = Array.from(buttonGroups).filter(isValidButtonGroup);
 
@@ -732,7 +724,6 @@ const insertDownloadButtons = () => {
   for (const buttonGroup of validButtonGroups) {
     const downloadButtonClone = downloadButton.cloneNode(true);
 
-    // change button size if needed
     if (buttonGroup.classList.contains("sc-button-group-small")) {
       downloadButtonClone.classList.replace(
         "sc-button-medium",
