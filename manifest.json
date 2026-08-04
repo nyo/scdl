@@ -21,7 +21,6 @@
   "permissions": [
     "*://*.soundcloud.com/*",
     "*://*.sndcdn.com/*",
-    "webRequest",
     "storage"
   ],
   "options_ui": {
