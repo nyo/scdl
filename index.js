@@ -889,7 +889,12 @@ const setClientId = async () => {
   }
 
   window.SCDL__CLIENT_ID = clientId;
-  logger.info(`Found SoundCloud clientId: ${clientId}`);
+
+  // Logged per-frame - seeing this twice with the same clientId is
+  // expected on the redesigned track page (once for the top frame, once
+  // for its iframe), not a duplicate log call.
+  const source = window.top === window ? "top frame" : "iframe";
+  logger.info(`Found SoundCloud clientId (${source}): ${clientId}`);
 };
 
 (async () => {
