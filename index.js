@@ -2,7 +2,8 @@
 
 window.SCDL__CLIENT_ID = null;
 window.SCDL__LAST_URL = null;
-window.SCDL__NB_PAGE_BUTTON_GROUP = 0;
+window.SCDL__NB_CLASSIC_BUTTON_GROUPS = 0;
+window.SCDL__NB_MUI_MENU_BUTTONS = 0;
 window.SCDL__DOM_ELEMENTS = [];
 
 /**
@@ -44,18 +45,18 @@ const watchNewTracksInterval = setInterval(() => {
     const pageUrl = document.URL;
     const pageButtonGroups = document.getElementsByClassName("sc-button-group");
     const muiMenuButtons = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR);
-    const nbPageButtonGroups =
-      (pageButtonGroups?.length ?? 0) + (muiMenuButtons?.length ?? 0);
 
     if (
       window.SCDL__CLIENT_ID &&
       (pageUrl !== window.SCDL__LAST_URL ||
-        nbPageButtonGroups !== window.SCDL__NB_PAGE_BUTTON_GROUP)
+        pageButtonGroups.length !== window.SCDL__NB_CLASSIC_BUTTON_GROUPS ||
+        muiMenuButtons.length !== window.SCDL__NB_MUI_MENU_BUTTONS)
     ) {
       insertDownloadButtons();
       insertMuiDownloadButtons();
       window.SCDL__LAST_URL = pageUrl;
-      window.SCDL__NB_PAGE_BUTTON_GROUP = nbPageButtonGroups;
+      window.SCDL__NB_CLASSIC_BUTTON_GROUPS = pageButtonGroups.length;
+      window.SCDL__NB_MUI_MENU_BUTTONS = muiMenuButtons.length;
     }
   } catch (err) {
     logger.error(err);
