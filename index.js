@@ -193,37 +193,44 @@ const blobToArrayBuffer = (blob) => {
  * @param {object} metadata
  */
 const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
-  const audioElement = new Audio();
-  const mediaSource = new MediaSource();
+  return new Promise((resolve, reject) => {
+    const audioElement = new Audio();
+    const mediaSource = new MediaSource();
 
-  const handleMediaSourceOpen = async (event) => {
-    event.preventDefault();
+    const handleMediaSourceOpen = async (event) => {
+      event.preventDefault();
 
-    const trackRes = await fetch(trackUrl);
+      try {
+        const trackRes = await fetch(trackUrl);
 
-    if (trackRes.status !== 200) {
-      throw new Error("Error while fetching 'hls' track URL...");
-    }
+        if (trackRes.status !== 200) {
+          throw new Error("Error while fetching 'hls' track URL...");
+        }
 
-    const trackData = await trackRes.text();
+        const trackData = await trackRes.text();
 
-    const mp3Urls = trackData
-      .split("\n")
-      .filter((line) => line && !line.startsWith("#"))
-      .map((line) => new URL(line, trackUrl).toString());
+        const mp3Urls = trackData
+          .split("\n")
+          .filter((line) => line && !line.startsWith("#"))
+          .map((line) => new URL(line, trackUrl).toString());
 
-    Promise.all(
-      mp3Urls.map((url) => fetch(url).then((res) => res.arrayBuffer()))
-    ).then(async (arrayBuffers) => {
-      const blob = new Blob(arrayBuffers);
-      const trackArrayBuffer = await blobToArrayBuffer(blob);
+        const arrayBuffers = await Promise.all(
+          mp3Urls.map((url) => fetch(url).then((res) => res.arrayBuffer()))
+        );
+        const blob = new Blob(arrayBuffers);
+        const trackArrayBuffer = await blobToArrayBuffer(blob);
 
-      await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
-    });
-  };
+        await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
 
-  audioElement.src = URL.createObjectURL(mediaSource);
-  mediaSource.addEventListener("sourceopen", handleMediaSourceOpen);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    audioElement.src = URL.createObjectURL(mediaSource);
+    mediaSource.addEventListener("sourceopen", handleMediaSourceOpen);
+  });
 };
 
 /**
@@ -469,7 +476,7 @@ const downloadTrack = async (buttonElement) => {
   if (streamData.protocol === "progressive") {
     await resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
   } else if (streamData.protocol === "hls") {
-    resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
+    await resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
   } else {
     throw new Error("Failed to resolve track: Unknown protocol.");
   }
