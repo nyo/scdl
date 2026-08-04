@@ -429,7 +429,7 @@ const getTrackURL = (buttonElement) => {
  * @param {HTMLElement} button
  * @param {string} message
  */
-const showErrorFeedback = (button, message) => {
+const showDownloadErrorFeedback = (button, message) => {
   if (button._scdlResetTimeout) {
     clearTimeout(button._scdlResetTimeout);
   } else {
@@ -487,7 +487,7 @@ const downloadTrack = async (buttonElement) => {
 
 /**
  * Wire up a download button's click handler: run downloadTrack, and on
- * failure log the error and flash the button red via showErrorFeedback.
+ * failure log the error and flash the button red via showDownloadErrorFeedback.
  * Shared by both the classic and MUI insertion paths.
  * @param {HTMLElement} button
  */
@@ -499,7 +499,7 @@ const attachDownloadClickHandler = (button) => {
         await downloadTrack(button);
       } catch (err) {
         logger.error(err);
-        showErrorFeedback(button, err.message);
+        showDownloadErrorFeedback(button, err.message);
       }
     },
     true
