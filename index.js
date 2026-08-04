@@ -272,6 +272,15 @@ const resolveArtworkBuffer = async (artworkUrl) => {
 };
 
 /**
+ * User-facing message for both DRM failure paths in fetchStreamData - no
+ * candidate transcoding was ever advertised, or candidates existed but
+ * every endpoint 404'd. That distinction is a diagnostic detail, not
+ * something the end-user needs to know; the outcome is the same either way.
+ */
+const DRM_ERROR_MESSAGE =
+  "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
+
+/**
  * Find a working transcoding for the track and return its data.
  * @param {object[]} transcodings
  * @returns {Promise<any>}
@@ -300,7 +309,7 @@ const fetchStreamData = async (transcodings) => {
   if (filteredTranscodings.length === 0) {
     throw new Error(
       hasEncryptedTranscoding
-        ? "This track is DRM-protected by SoundCloud and cannot be downloaded."
+        ? DRM_ERROR_MESSAGE
         : "No supported transcoding found for this track."
     );
   }
@@ -329,9 +338,15 @@ const fetchStreamData = async (transcodings) => {
 
   // legacy mp3 transcodings advertised but every endpoint 404'd:
   // soundcloud is dropping unencrypted streams for tracks moved under DRM
+  if (hasEncryptedTranscoding) {
+    logger.error(
+      "SoundCloud no longer serves an unencrypted stream for this track (all non-encrypted transcoding endpoints returned non-200)."
+    );
+  }
+
   throw new Error(
     hasEncryptedTranscoding
-      ? "SoundCloud no longer serves an unencrypted stream for this track (DRM-protected)."
+      ? DRM_ERROR_MESSAGE
       : "All transcoding endpoints failed (track may be region-locked or removed)."
   );
 };
