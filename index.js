@@ -43,9 +43,9 @@ const watchNewTracksInterval = setInterval(() => {
 
     const pageUrl = document.URL;
     const pageButtonGroups = document.getElementsByClassName("sc-button-group");
-    const muiMoreMenuButtons = document.querySelectorAll('[aria-label="More menu"]');
+    const muiMenuButtons = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR);
     const nbPageButtonGroups =
-      (pageButtonGroups?.length ?? 0) + (muiMoreMenuButtons?.length ?? 0);
+      (pageButtonGroups?.length ?? 0) + (muiMenuButtons?.length ?? 0);
 
     if (
       window.SCDL__CLIENT_ID &&
@@ -649,6 +649,39 @@ const insertDownloadButtons = () => {
 };
 
 /**
+ * Icon path data ("d" attribute) for the MUI-based track player's action
+ * buttons. Their aria-labels are translated per the user's SoundCloud UI
+ * language (e.g. "Share" becomes "Partager" in French), which breaks any
+ * detection based on that text - but the icon artwork itself is the same
+ * regardless of language, so matching on it is locale-independent. Only
+ * one path per icon is used even where an icon is drawn from several
+ * (Copy link, Repost) - enough to identify it, no need to match all of
+ * them.
+ */
+const MUI_SHARE_ICON_PATH =
+  "M20.25 12.75V20.25H3.75V12.75M12 15V4.5M16.5 8.25L12 3.75L7.5 8.25";
+const MUI_COPY_LINK_ICON_PATH =
+  "M18.8058 5.0691C16.9508 3.21411 13.9433 3.21411 12.0883 5.0691L10.1843 6.97311C10.8172 6.93366 11.4563 7.01402 12.0645 7.21421L13.1489 6.12976C14.4181 4.86056 16.4759 4.86056 17.7451 6.12976C19.0143 7.39896 19.0143 9.45675 17.7451 10.726L15.6238 12.8473C14.3546 14.1165 12.2968 14.1165 11.0276 12.8473C10.717 12.5367 10.4824 12.1788 10.3238 11.7968C9.82388 11.8256 9.32979 11.9789 8.89196 12.2567C9.0373 12.6347 9.23273 12.9979 9.47825 13.336L9.96695 13.9079C11.8219 15.7629 14.8295 15.7629 16.6845 13.9079L18.8058 11.7866C20.6608 9.93162 20.6608 6.92409 18.8058 5.0691Z";
+const MUI_REPOST_ICON_PATH =
+  "M19 4.25C19.4142 4.25 19.75 4.58579 19.75 5V17.1992L22.0039 14.9395L23.0654 15.998L19.5361 19.54C19.3954 19.6811 19.2041 19.7607 19.0049 19.7607C18.8057 19.7607 18.6143 19.6811 18.4736 19.54L14.9443 15.998L16.0068 14.9395L18.25 17.1895V5.75H11.25V4.25H19Z";
+const MUI_ADD_TO_PLAYLIST_ICON_PATH =
+  "M12 3.75V12M12 12V20.25M12 12H3.75M12 12H20.25";
+const MUI_NATIVE_DOWNLOAD_ICON_PATH =
+  "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z";
+
+/**
+ * CSS selector for a MUI dropdown-trigger button - the "More menu"
+ * button, among others. Anchored on aria-haspopup="true" rather than the
+ * "More menu" aria-label for the same reason as the icon paths above:
+ * it's a fixed ARIA protocol value, never translated, unlike aria-label
+ * text (e.g. "More menu" becomes "Plus d'options" in French). This also
+ * matches unrelated dropdowns elsewhere on the page (a comment-sort
+ * selector, sidebar mini-tracks' own menus) - isValidMuiActionsContainer's
+ * icon-path checks filter those back out.
+ */
+const MUI_MENU_TRIGGER_SELECTOR = '[aria-haspopup="true"]';
+
+/**
  * Checks whether the given element is a valid "action buttons" container
  * for the MUI-based track player - the row containing
  * Share / Copy link / Repost / add to playlist / More menu for a track's
@@ -666,19 +699,16 @@ const insertDownloadButtons = () => {
  */
 const isValidMuiActionsContainer = (container) => {
   if (!container || window.SCDL__DOM_ELEMENTS.includes(container)) return false;
-  if (container.querySelector('[aria-label="Download track"]')) return false;
+  if (container.querySelector(`path[d="${MUI_NATIVE_DOWNLOAD_ICON_PATH}"]`)) return false;
 
-  const requiredAriaLabels = [
-    "Share",
-    "Copy link",
-    "Repost",
-    "add to playlist",
-    "More menu",
+  const requiredIconPaths = [
+    MUI_SHARE_ICON_PATH,
+    MUI_COPY_LINK_ICON_PATH,
+    MUI_REPOST_ICON_PATH,
+    MUI_ADD_TO_PLAYLIST_ICON_PATH,
   ];
 
-  return requiredAriaLabels.every((label) =>
-    container.querySelector(`[aria-label="${label}"]`)
-  );
+  return requiredIconPaths.every((path) => container.querySelector(`path[d="${path}"]`));
 };
 
 /**
@@ -690,9 +720,9 @@ const isValidMuiActionsContainer = (container) => {
  * @returns {Element[]}
  */
 const getMuiActionsContainers = () => {
-  const moreMenuButtons = document.querySelectorAll('[aria-label="More menu"]');
+  const menuButtons = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR);
 
-  return Array.from(moreMenuButtons)
+  return Array.from(menuButtons)
     .map((button) => button.parentElement)
     .filter(isValidMuiActionsContainer);
 };
@@ -723,10 +753,7 @@ const createMuiDownloadIconSvg = () => {
   );
   pathElement.setAttribute("fill", "currentColor");
   pathElement.setAttribute("fill-rule", "evenodd");
-  pathElement.setAttribute(
-    "d",
-    "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z"
-  );
+  pathElement.setAttribute("d", MUI_NATIVE_DOWNLOAD_ICON_PATH);
   pathElement.setAttribute("clip-rule", "evenodd");
 
   svgElement.appendChild(pathElement);
@@ -746,8 +773,8 @@ const createMuiDownloadIconSvg = () => {
  * @returns {HTMLButtonElement}
  */
 const createMuiDownloadButton = (container) => {
-  const copyLinkButton = container.querySelector('[aria-label="Copy link"]');
-  const button = copyLinkButton.cloneNode(true);
+  const copyLinkIcon = container.querySelector(`path[d="${MUI_COPY_LINK_ICON_PATH}"]`);
+  const button = copyLinkIcon.closest("button").cloneNode(true);
 
   const idleBackground = "rgba(255, 85, 0, 0.6)";
   const hoverBackground = "rgba(255, 85, 0, 0.9)";
@@ -776,16 +803,16 @@ const createMuiDownloadButton = (container) => {
  * classnames, or DOM nodes.
  */
 const insertMuiDownloadButtons = () => {
-  const moreMenuButtonCount = document.querySelectorAll('[aria-label="More menu"]').length;
+  const menuButtonCount = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR).length;
   const containers = getMuiActionsContainers();
 
   logger.info(
-    `MUI: ${moreMenuButtonCount} "More menu" button(s) found, ${containers.length} valid action row(s)`
+    `MUI: ${menuButtonCount} dropdown-trigger button(s) found, ${containers.length} valid action row(s)`
   );
 
   for (const container of containers) {
     const downloadButton = createMuiDownloadButton(container);
-    const moreMenuButton = container.querySelector('[aria-label="More menu"]');
+    const moreMenuButton = container.querySelector(MUI_MENU_TRIGGER_SELECTOR);
 
     downloadButton.addEventListener(
       "click",
