@@ -851,20 +851,36 @@ const createMuiDownloadIconSvg = () => {
 };
 
 /**
- * Build a 'Download' icon-button by cloning the "Copy link" button
- * (always present per isValidMuiActionsContainer) so it inherits that
- * button's actual per-build styling without us hardcoding any of it.
+ * Build a 'Download' icon-button by cloning the row's "More menu"
+ * button, so it inherits that button's per-build styling without us
+ * hardcoding any of it. The menu button is the one the row is found
+ * through, so it is always there; the row's other buttons are not.
+ *
+ * The clone must not read as a menu button to our own selectors. Left
+ * as is, it would be counted by the change detection and returned as
+ * its container's menu button, and that container would be detected
+ * again on the next pass. Removing aria-haspopup prevents that. The id
+ * goes too, since ids are unique, along with the ARIA attributes
+ * pointing at a menu this button doesn't open.
  *
  * Colors are set via inline style, not an injected stylesheet:
  * SoundCloud's own page script enumerates document.styleSheets and
  * throws a SecurityError reading cssRules off any stylesheet the
  * extension adds.
- * @param {Element} container
+ * @param {HTMLButtonElement} menuButton
  * @returns {HTMLButtonElement}
  */
-const createMuiDownloadButton = (container) => {
-  const copyLinkIcon = container.querySelector(`path[d="${MUI_COPY_LINK_ICON_PATH}"]`);
-  const button = copyLinkIcon.closest("button").cloneNode(true);
+const createMuiDownloadButton = (menuButton) => {
+  const button = menuButton.cloneNode(true);
+
+  for (const attribute of [
+    "id",
+    "aria-haspopup",
+    "aria-expanded",
+    "aria-controls",
+  ]) {
+    button.removeAttribute(attribute);
+  }
 
   const idleBackground = "rgba(255, 85, 0, 0.6)";
   const hoverBackground = "rgba(255, 85, 0, 0.9)";
@@ -901,8 +917,8 @@ const insertMuiDownloadButtons = () => {
   );
 
   for (const container of containers) {
-    const downloadButton = createMuiDownloadButton(container);
     const moreMenuButton = container.querySelector(MUI_MENU_TRIGGER_SELECTOR);
+    const downloadButton = createMuiDownloadButton(moreMenuButton);
 
     attachDownloadClickHandler(downloadButton);
 
