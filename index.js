@@ -739,66 +739,60 @@ const insertDownloadButtons = () => {
 };
 
 /**
- * Icon path data ("d" attribute) for the MUI-based track player's action
- * buttons. Their aria-labels are translated per the user's SoundCloud UI
- * language (e.g. "Share" becomes "Partager" in French), which breaks any
- * detection based on that text - but the icon artwork itself is the same
- * regardless of language, so matching on it is locale-independent. Only
- * one path per icon is used even where an icon is drawn from several
- * (Copy link, Repost) - enough to identify it, no need to match all of
- * them.
+ * Icon path data ("d" attribute) for SoundCloud's own "Download track"
+ * button, shown on tracks whose artist enabled downloads. We match on
+ * it to spot that button, so we don't add a second, redundant one next
+ * to it. We also reuse it to draw our own icon.
  */
-const MUI_SHARE_ICON_PATH =
-  "M20.25 12.75V20.25H3.75V12.75M12 15V4.5M16.5 8.25L12 3.75L7.5 8.25";
-const MUI_COPY_LINK_ICON_PATH =
-  "M18.8058 5.0691C16.9508 3.21411 13.9433 3.21411 12.0883 5.0691L10.1843 6.97311C10.8172 6.93366 11.4563 7.01402 12.0645 7.21421L13.1489 6.12976C14.4181 4.86056 16.4759 4.86056 17.7451 6.12976C19.0143 7.39896 19.0143 9.45675 17.7451 10.726L15.6238 12.8473C14.3546 14.1165 12.2968 14.1165 11.0276 12.8473C10.717 12.5367 10.4824 12.1788 10.3238 11.7968C9.82388 11.8256 9.32979 11.9789 8.89196 12.2567C9.0373 12.6347 9.23273 12.9979 9.47825 13.336L9.96695 13.9079C11.8219 15.7629 14.8295 15.7629 16.6845 13.9079L18.8058 11.7866C20.6608 9.93162 20.6608 6.92409 18.8058 5.0691Z";
-const MUI_REPOST_ICON_PATH =
-  "M19 4.25C19.4142 4.25 19.75 4.58579 19.75 5V17.1992L22.0039 14.9395L23.0654 15.998L19.5361 19.54C19.3954 19.6811 19.2041 19.7607 19.0049 19.7607C18.8057 19.7607 18.6143 19.6811 18.4736 19.54L14.9443 15.998L16.0068 14.9395L18.25 17.1895V5.75H11.25V4.25H19Z";
-const MUI_ADD_TO_PLAYLIST_ICON_PATH =
-  "M12 3.75V12M12 12V20.25M12 12H3.75M12 12H20.25";
 const MUI_NATIVE_DOWNLOAD_ICON_PATH =
   "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z";
 
 /**
- * CSS selector for a MUI dropdown-trigger button - the "More menu"
- * button, among others. Anchored on aria-haspopup="true" rather than the
- * "More menu" aria-label for the same reason as the icon paths above:
- * it's a fixed ARIA protocol value, never translated, unlike aria-label
- * text (e.g. "More menu" becomes "Plus d'options" in French). This also
- * matches unrelated dropdowns elsewhere on the page (a comment-sort
- * selector, sidebar mini-tracks' own menus) - isValidMuiActionsContainer's
- * icon-path checks filter those back out.
+ * CSS selector for any MUI dropdown-trigger button on the page: the
+ * track's own "More menu", a comment's menu, the comment-sort selector,
+ * the sidebar mini-tracks' menus. Anchored on aria-haspopup="true"
+ * rather than an aria-label, which is translated per the user's
+ * SoundCloud UI language ("More menu" becomes "Plus d'actions" in
+ * French). aria-haspopup is a fixed ARIA protocol value and reads the
+ * same in every language.
+ *
+ * watchNewTracksInterval, the only caller, counts them: when that count
+ * changes, the page has rendered something new.
  */
 const MUI_MENU_TRIGGER_SELECTOR = '[aria-haspopup="true"]';
 
 /**
- * Checks whether the given element is a valid "action buttons" container
- * for the MUI-based track player - the row containing
- * Share / Copy link / Repost / add to playlist / More menu for a track's
- * own header. Comment rows and sidebar mini-tracks have their own "More
- * menu" (or "More actions for this track") button too, but never all
- * five siblings together, so requiring all five is specific enough
- * without needing the classic code's blacklist heuristics.
+ * CSS selector for the "More menu" button of a track's own header on
+ * the MUI-based track player.
  *
- * Also skips containers that already have SoundCloud's own native
- * "Download track" button - some tracks have downloads natively enabled
- * by their artist, and we don't want to add a second, redundant button
- * next to theirs.
+ * The `variant` attribute separates it from every other dropdown in the
+ * page: the header's menu button is the only "outlined" one. A
+ * comment's menu is "ghost", and the comment-sort selector and the
+ * sidebar mini-tracks' menus carry no variant at all. It survives
+ * translation, like aria-haspopup, and it isn't a per-build hash, like
+ * the MuiStack and MuiBox class names.
+ *
+ * The header row is only guaranteed to hold that one button: on a track
+ * shared through a secret link, SoundCloud renders no Share, Copy link,
+ * Repost or add-to-playlist button beside it.
+ */
+const MUI_TRACK_ACTIONS_SELECTOR = '[aria-haspopup="true"][variant="outlined"]';
+
+/**
+ * Checks whether the given "action buttons" container should be
+ * appended a download button.
+ *
+ * Skips containers we've already handled, and containers that hold
+ * SoundCloud's own native "Download track" button - some tracks
+ * have downloads natively enabled by their artist, and we don't want to
+ * add a second, redundant button next to theirs.
  * @param {Element} container
  * @returns {boolean}
  */
 const isValidMuiActionsContainer = (container) => {
   if (!container || window.SCDL__DOM_ELEMENTS.includes(container)) return false;
-  if (container.querySelector(`path[d="${MUI_NATIVE_DOWNLOAD_ICON_PATH}"]`)) return false;
 
-  const requiredIconPaths = [
-    MUI_SHARE_ICON_PATH,
-    MUI_COPY_LINK_ICON_PATH,
-    MUI_REPOST_ICON_PATH,
-    MUI_ADD_TO_PLAYLIST_ICON_PATH,
-  ];
-
-  return requiredIconPaths.every((path) => container.querySelector(`path[d="${path}"]`));
+  return !container.querySelector(`path[d="${MUI_NATIVE_DOWNLOAD_ICON_PATH}"]`);
 };
 
 /**
@@ -810,7 +804,7 @@ const isValidMuiActionsContainer = (container) => {
  * @returns {Element[]}
  */
 const getMuiActionsContainers = () => {
-  const menuButtons = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR);
+  const menuButtons = document.querySelectorAll(MUI_TRACK_ACTIONS_SELECTOR);
 
   return Array.from(menuButtons)
     .map((button) => button.parentElement)
@@ -909,15 +903,17 @@ const createMuiDownloadButton = (menuButton) => {
  * classnames, or DOM nodes.
  */
 const insertMuiDownloadButtons = () => {
-  const menuButtonCount = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR).length;
+  const trackMenuButtonCount = document.querySelectorAll(
+    MUI_TRACK_ACTIONS_SELECTOR
+  ).length;
   const containers = getMuiActionsContainers();
 
   logger.info(
-    `MUI: ${menuButtonCount} dropdown-trigger button(s) found, ${containers.length} valid action row(s)`
+    `MUI: ${trackMenuButtonCount} track menu button(s) found, ${containers.length} valid action row(s)`
   );
 
   for (const container of containers) {
-    const moreMenuButton = container.querySelector(MUI_MENU_TRIGGER_SELECTOR);
+    const moreMenuButton = container.querySelector(MUI_TRACK_ACTIONS_SELECTOR);
     const downloadButton = createMuiDownloadButton(moreMenuButton);
 
     attachDownloadClickHandler(downloadButton);
