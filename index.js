@@ -9,11 +9,10 @@ window.SCDL__ERROR_TOAST_ELEMENT = null;
 window.SCDL__ERROR_TOAST_TIMEOUT = null;
 
 /**
- * Human-readable label for which frame this code is currently running
- * in - "top frame" or "iframe" - since watchNewTracksInterval and
- * setClientId both run once per frame (every frame the content script
- * gets injected into runs its own independent copy of this whole
- * script), so every log benefits from knowing which one it's from.
+ * Label for the frame this code runs in: "top frame" or "iframe".
+ * Every frame the content script is injected into runs its own copy of
+ * this script, so watchNewTracksInterval and setClientId each run once
+ * per frame. The logs say which frame they came from.
  * @returns {string}
  */
 const getFrameLabel = () => (window.top === window ? "top frame" : "iframe");
@@ -272,10 +271,10 @@ const resolveArtworkBuffer = async (artworkUrl) => {
 };
 
 /**
- * User-facing message for both DRM failure paths in fetchStreamData - no
- * candidate transcoding was ever advertised, or candidates existed but
- * every endpoint 404'd. That distinction is a diagnostic detail, not
- * something the end-user needs to know; the outcome is the same either way.
+ * User-facing message for both DRM failure paths in fetchStreamData:
+ * either no candidate transcoding was ever advertised, or candidates
+ * existed and every endpoint 404'd. The user reads the same message for
+ * both, since the outcome is the same. The logs keep the distinction.
  */
 const DRM_ERROR_MESSAGE =
   "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
@@ -371,11 +370,10 @@ const resolveTrack = async (url) => {
 
   const resolveData = await resolveRes.json();
 
-  // Only a track carries media.transcodings. Without this check, a
-  // download button that ended up somewhere it shouldn't - a playlist
-  // or profile header, if SoundCloud ever gives one the same markup the
-  // track header has - would fail inside fetchStreamData with a
-  // TypeError, and that is what the error toast would show the user.
+  // Only a track carries media.transcodings. Should a download button
+  // ever land on a playlist or profile header, this check is what turns
+  // the failure into a readable message. Without it, fetchStreamData
+  // throws a TypeError and the error toast shows that to the user.
   if (resolveData?.kind !== "track") {
     throw new Error(
       `This isn't a track, so there's nothing to download (SoundCloud resolved it as "${
@@ -464,10 +462,10 @@ const getTrackURL = (buttonElement) => {
 const ERROR_BACKGROUND_COLOR = "#ff0000";
 
 /**
- * Get the single shared error toast element, creating and appending it to
- * the page on first use. Reused across errors instead of creating a new
- * element each time, so a second error while one's still showing just
- * replaces its message rather than stacking a duplicate on screen.
+ * Get the single shared error toast element, creating and appending it
+ * to the page on first use. One element is reused for every error, so a
+ * second error while the first is still showing replaces its message
+ * instead of stacking a duplicate on screen.
  * @returns {HTMLElement}
  */
 const getErrorToastElement = () => {
@@ -498,10 +496,8 @@ const getErrorToastElement = () => {
 };
 
 /**
- * Show the given message in the shared error toast for 5 seconds. Restarts
- * the timer on repeat calls instead of stacking timeouts, so a second error
- * while one's still showing just replaces the message and keeps it visible
- * for a fresh 5 seconds.
+ * Show the given message in the shared error toast for 5 seconds. A
+ * repeat call restarts that timer rather than stacking a second one.
  * @param {string} message
  */
 const showErrorToast = (message) => {
@@ -522,10 +518,11 @@ const showErrorToast = (message) => {
  * hovering). Clears any pending reset so rapid clicks don't cause the
  * button to revert to its normal state mid-error.
  *
- * Restores whatever backgroundColor/color/title the button had before
- * the error (captured once, not on repeat clicks while already red) -
- * not hardcoded empty strings, since the MUI button has its own idle
- * inline background color and title that aren't "".
+ * The button's backgroundColor, color and title are captured before the
+ * first error and put back afterwards, once, not again on repeat clicks
+ * while the button is already red. Restoring the captured values is
+ * what the MUI button needs, since it has an idle inline background
+ * color and title of its own.
  * @param {HTMLElement} button
  * @param {string} message
  */
@@ -921,9 +918,8 @@ const createMuiDownloadButton = (menuButton) => {
 /**
  * Insert 'Download' button(s) into the MUI-based track player's
  * action-buttons row(s), mirroring insertDownloadButtons() for the
- * classic layout. Runs independently of, and never touches, the
- * classic-layout insertion above - the two paths share no selectors,
- * classnames, or DOM nodes.
+ * classic layout. The two paths share no selectors and no DOM nodes, so
+ * neither can disturb the other.
  */
 const insertMuiDownloadButtons = () => {
   const trackMenuButtonCount = document.querySelectorAll(
@@ -960,7 +956,7 @@ const insertMuiDownloadButtons = () => {
  * setting that lets us reach the crossfade iframe also injects us into
  * any other soundcloud.com-hosted iframe anywhere, including that
  * classic widget embedded on someone else's page, which we have no
- * reason to touch. This guards against that side effect.
+ * reason to touch.
  * @returns {boolean}
  */
 const isThirdPartyEmbed = () => {
@@ -1020,9 +1016,10 @@ const findClientIdInDocument = async (doc) => {
  * and does reference one; the top frame scans its own document, same as
  * always.
  *
- * Does nothing on a third-party embed (isThirdPartyEmbed() checked here
- * too, not just relied on via the interval, since this function runs
- * unconditionally at startup) - not an error, just nothing to do.
+ * Does nothing on a third-party embed. isThirdPartyEmbed() is checked
+ * here as well as in the interval, since this function runs
+ * unconditionally at startup. Having nothing to do there is not a
+ * failure, so it logs and returns instead of throwing.
  */
 const setClientId = async () => {
   if (isThirdPartyEmbed()) {
