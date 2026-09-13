@@ -9,11 +9,10 @@ window.SCDL__ERROR_TOAST_ELEMENT = null;
 window.SCDL__ERROR_TOAST_TIMEOUT = null;
 
 /**
- * Human-readable label for which frame this code is currently running
- * in - "top frame" or "iframe" - since watchNewTracksInterval and
- * setClientId both run once per frame (every frame the content script
- * gets injected into runs its own independent copy of this whole
- * script), so every log benefits from knowing which one it's from.
+ * Label for the frame this code runs in: "top frame" or "iframe".
+ * Every frame the content script is injected into runs its own copy of
+ * this script, so watchNewTracksInterval and setClientId each run once
+ * per frame. The logs say which frame they came from.
  * @returns {string}
  */
 const getFrameLabel = () => (window.top === window ? "top frame" : "iframe");
@@ -272,10 +271,10 @@ const resolveArtworkBuffer = async (artworkUrl) => {
 };
 
 /**
- * User-facing message for both DRM failure paths in fetchStreamData - no
- * candidate transcoding was ever advertised, or candidates existed but
- * every endpoint 404'd. That distinction is a diagnostic detail, not
- * something the end-user needs to know; the outcome is the same either way.
+ * User-facing message for both DRM failure paths in fetchStreamData:
+ * either no candidate transcoding was ever advertised, or candidates
+ * existed and every endpoint 404'd. The user reads the same message for
+ * both, since the outcome is the same. The logs keep the distinction.
  */
 const DRM_ERROR_MESSAGE =
   "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
@@ -369,7 +368,21 @@ const resolveTrack = async (url) => {
     throw new Error(`Error while resolving '${url}'...`);
   }
 
-  return resolveRes.json();
+  const resolveData = await resolveRes.json();
+
+  // Only a track carries media.transcodings. Should a download button
+  // ever land on a playlist or profile header, this check is what turns
+  // the failure into a readable message. Without it, fetchStreamData
+  // throws a TypeError and the error toast shows that to the user.
+  if (resolveData?.kind !== "track") {
+    throw new Error(
+      `This isn't a track, so there's nothing to download (SoundCloud resolved it as "${
+        resolveData?.kind || "unknown"
+      }").`
+    );
+  }
+
+  return resolveData;
 };
 
 /**
@@ -413,7 +426,15 @@ const getTrackURL = (buttonElement) => {
     // click handler on a button that watchNewTracksInterval only inserts
     // after isThirdPartyEmbed() has already confirmed window.top is
     // accessible and on soundcloud.com.
-    return window.top !== window ? window.top.location.href : document.URL;
+    //
+    // The query string goes, the path stays. A track shared through a
+    // secret link carries its token as a path segment
+    // (/<user>/<track>/s-XXXXXX), and that segment is what makes the
+    // resolve call return a private track.
+    const pageUrl =
+      window.top !== window ? window.top.location.href : document.URL;
+
+    return pageUrl.split("?")[0];
   }
 
   const links = node.querySelectorAll("a");
@@ -441,10 +462,10 @@ const getTrackURL = (buttonElement) => {
 const ERROR_BACKGROUND_COLOR = "#ff0000";
 
 /**
- * Get the single shared error toast element, creating and appending it to
- * the page on first use. Reused across errors instead of creating a new
- * element each time, so a second error while one's still showing just
- * replaces its message rather than stacking a duplicate on screen.
+ * Get the single shared error toast element, creating and appending it
+ * to the page on first use. One element is reused for every error, so a
+ * second error while the first is still showing replaces its message
+ * instead of stacking a duplicate on screen.
  * @returns {HTMLElement}
  */
 const getErrorToastElement = () => {
@@ -475,10 +496,8 @@ const getErrorToastElement = () => {
 };
 
 /**
- * Show the given message in the shared error toast for 5 seconds. Restarts
- * the timer on repeat calls instead of stacking timeouts, so a second error
- * while one's still showing just replaces the message and keeps it visible
- * for a fresh 5 seconds.
+ * Show the given message in the shared error toast for 5 seconds. A
+ * repeat call restarts that timer rather than stacking a second one.
  * @param {string} message
  */
 const showErrorToast = (message) => {
@@ -499,10 +518,11 @@ const showErrorToast = (message) => {
  * hovering). Clears any pending reset so rapid clicks don't cause the
  * button to revert to its normal state mid-error.
  *
- * Restores whatever backgroundColor/color/title the button had before
- * the error (captured once, not on repeat clicks while already red) -
- * not hardcoded empty strings, since the MUI button has its own idle
- * inline background color and title that aren't "".
+ * The button's backgroundColor, color and title are captured before the
+ * first error and put back afterwards, once, not again on repeat clicks
+ * while the button is already red. Restoring the captured values is
+ * what the MUI button needs, since it has an idle inline background
+ * color and title of its own.
  * @param {HTMLElement} button
  * @param {string} message
  */
@@ -739,66 +759,60 @@ const insertDownloadButtons = () => {
 };
 
 /**
- * Icon path data ("d" attribute) for the MUI-based track player's action
- * buttons. Their aria-labels are translated per the user's SoundCloud UI
- * language (e.g. "Share" becomes "Partager" in French), which breaks any
- * detection based on that text - but the icon artwork itself is the same
- * regardless of language, so matching on it is locale-independent. Only
- * one path per icon is used even where an icon is drawn from several
- * (Copy link, Repost) - enough to identify it, no need to match all of
- * them.
+ * Icon path data ("d" attribute) for SoundCloud's own "Download track"
+ * button, shown on tracks whose artist enabled downloads. We match on
+ * it to spot that button, so we don't add a second, redundant one next
+ * to it. We also reuse it to draw our own icon.
  */
-const MUI_SHARE_ICON_PATH =
-  "M20.25 12.75V20.25H3.75V12.75M12 15V4.5M16.5 8.25L12 3.75L7.5 8.25";
-const MUI_COPY_LINK_ICON_PATH =
-  "M18.8058 5.0691C16.9508 3.21411 13.9433 3.21411 12.0883 5.0691L10.1843 6.97311C10.8172 6.93366 11.4563 7.01402 12.0645 7.21421L13.1489 6.12976C14.4181 4.86056 16.4759 4.86056 17.7451 6.12976C19.0143 7.39896 19.0143 9.45675 17.7451 10.726L15.6238 12.8473C14.3546 14.1165 12.2968 14.1165 11.0276 12.8473C10.717 12.5367 10.4824 12.1788 10.3238 11.7968C9.82388 11.8256 9.32979 11.9789 8.89196 12.2567C9.0373 12.6347 9.23273 12.9979 9.47825 13.336L9.96695 13.9079C11.8219 15.7629 14.8295 15.7629 16.6845 13.9079L18.8058 11.7866C20.6608 9.93162 20.6608 6.92409 18.8058 5.0691Z";
-const MUI_REPOST_ICON_PATH =
-  "M19 4.25C19.4142 4.25 19.75 4.58579 19.75 5V17.1992L22.0039 14.9395L23.0654 15.998L19.5361 19.54C19.3954 19.6811 19.2041 19.7607 19.0049 19.7607C18.8057 19.7607 18.6143 19.6811 18.4736 19.54L14.9443 15.998L16.0068 14.9395L18.25 17.1895V5.75H11.25V4.25H19Z";
-const MUI_ADD_TO_PLAYLIST_ICON_PATH =
-  "M12 3.75V12M12 12V20.25M12 12H3.75M12 12H20.25";
 const MUI_NATIVE_DOWNLOAD_ICON_PATH =
   "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z";
 
 /**
- * CSS selector for a MUI dropdown-trigger button - the "More menu"
- * button, among others. Anchored on aria-haspopup="true" rather than the
- * "More menu" aria-label for the same reason as the icon paths above:
- * it's a fixed ARIA protocol value, never translated, unlike aria-label
- * text (e.g. "More menu" becomes "Plus d'options" in French). This also
- * matches unrelated dropdowns elsewhere on the page (a comment-sort
- * selector, sidebar mini-tracks' own menus) - isValidMuiActionsContainer's
- * icon-path checks filter those back out.
+ * CSS selector for any MUI dropdown-trigger button on the page: the
+ * track's own "More menu", a comment's menu, the comment-sort selector,
+ * the sidebar mini-tracks' menus. Anchored on aria-haspopup="true"
+ * rather than an aria-label, which is translated per the user's
+ * SoundCloud UI language ("More menu" becomes "Plus d'actions" in
+ * French). aria-haspopup is a fixed ARIA protocol value and reads the
+ * same in every language.
+ *
+ * watchNewTracksInterval, the only caller, counts them: when that count
+ * changes, the page has rendered something new.
  */
 const MUI_MENU_TRIGGER_SELECTOR = '[aria-haspopup="true"]';
 
 /**
- * Checks whether the given element is a valid "action buttons" container
- * for the MUI-based track player - the row containing
- * Share / Copy link / Repost / add to playlist / More menu for a track's
- * own header. Comment rows and sidebar mini-tracks have their own "More
- * menu" (or "More actions for this track") button too, but never all
- * five siblings together, so requiring all five is specific enough
- * without needing the classic code's blacklist heuristics.
+ * CSS selector for the "More menu" button of a track's own header on
+ * the MUI-based track player.
  *
- * Also skips containers that already have SoundCloud's own native
- * "Download track" button - some tracks have downloads natively enabled
- * by their artist, and we don't want to add a second, redundant button
- * next to theirs.
+ * The `variant` attribute separates it from every other dropdown in the
+ * page: the header's menu button is the only "outlined" one. A
+ * comment's menu is "ghost", and the comment-sort selector and the
+ * sidebar mini-tracks' menus carry no variant at all. It survives
+ * translation, like aria-haspopup, and it isn't a per-build hash, like
+ * the MuiStack and MuiBox class names.
+ *
+ * The header row is only guaranteed to hold that one button: on a track
+ * shared through a secret link, SoundCloud renders no Share, Copy link,
+ * Repost or add-to-playlist button beside it.
+ */
+const MUI_TRACK_ACTIONS_SELECTOR = '[aria-haspopup="true"][variant="outlined"]';
+
+/**
+ * Checks whether the given "action buttons" container should be
+ * appended a download button.
+ *
+ * Skips containers we've already handled, and containers that hold
+ * SoundCloud's own native "Download track" button - some tracks
+ * have downloads natively enabled by their artist, and we don't want to
+ * add a second, redundant button next to theirs.
  * @param {Element} container
  * @returns {boolean}
  */
 const isValidMuiActionsContainer = (container) => {
   if (!container || window.SCDL__DOM_ELEMENTS.includes(container)) return false;
-  if (container.querySelector(`path[d="${MUI_NATIVE_DOWNLOAD_ICON_PATH}"]`)) return false;
 
-  const requiredIconPaths = [
-    MUI_SHARE_ICON_PATH,
-    MUI_COPY_LINK_ICON_PATH,
-    MUI_REPOST_ICON_PATH,
-    MUI_ADD_TO_PLAYLIST_ICON_PATH,
-  ];
-
-  return requiredIconPaths.every((path) => container.querySelector(`path[d="${path}"]`));
+  return !container.querySelector(`path[d="${MUI_NATIVE_DOWNLOAD_ICON_PATH}"]`);
 };
 
 /**
@@ -810,7 +824,7 @@ const isValidMuiActionsContainer = (container) => {
  * @returns {Element[]}
  */
 const getMuiActionsContainers = () => {
-  const menuButtons = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR);
+  const menuButtons = document.querySelectorAll(MUI_TRACK_ACTIONS_SELECTOR);
 
   return Array.from(menuButtons)
     .map((button) => button.parentElement)
@@ -851,20 +865,36 @@ const createMuiDownloadIconSvg = () => {
 };
 
 /**
- * Build a 'Download' icon-button by cloning the "Copy link" button
- * (always present per isValidMuiActionsContainer) so it inherits that
- * button's actual per-build styling without us hardcoding any of it.
+ * Build a 'Download' icon-button by cloning the row's "More menu"
+ * button, so it inherits that button's per-build styling without us
+ * hardcoding any of it. The menu button is the one the row is found
+ * through, so it is always there; the row's other buttons are not.
+ *
+ * The clone must not read as a menu button to our own selectors. Left
+ * as is, it would be counted by the change detection and returned as
+ * its container's menu button, and that container would be detected
+ * again on the next pass. Removing aria-haspopup prevents that. The id
+ * goes too, since ids are unique, along with the ARIA attributes
+ * pointing at a menu this button doesn't open.
  *
  * Colors are set via inline style, not an injected stylesheet:
  * SoundCloud's own page script enumerates document.styleSheets and
  * throws a SecurityError reading cssRules off any stylesheet the
  * extension adds.
- * @param {Element} container
+ * @param {HTMLButtonElement} menuButton
  * @returns {HTMLButtonElement}
  */
-const createMuiDownloadButton = (container) => {
-  const copyLinkIcon = container.querySelector(`path[d="${MUI_COPY_LINK_ICON_PATH}"]`);
-  const button = copyLinkIcon.closest("button").cloneNode(true);
+const createMuiDownloadButton = (menuButton) => {
+  const button = menuButton.cloneNode(true);
+
+  for (const attribute of [
+    "id",
+    "aria-haspopup",
+    "aria-expanded",
+    "aria-controls",
+  ]) {
+    button.removeAttribute(attribute);
+  }
 
   const idleBackground = "rgba(255, 85, 0, 0.6)";
   const hoverBackground = "rgba(255, 85, 0, 0.9)";
@@ -888,21 +918,22 @@ const createMuiDownloadButton = (container) => {
 /**
  * Insert 'Download' button(s) into the MUI-based track player's
  * action-buttons row(s), mirroring insertDownloadButtons() for the
- * classic layout. Runs independently of, and never touches, the
- * classic-layout insertion above - the two paths share no selectors,
- * classnames, or DOM nodes.
+ * classic layout. The two paths share no selectors and no DOM nodes, so
+ * neither can disturb the other.
  */
 const insertMuiDownloadButtons = () => {
-  const menuButtonCount = document.querySelectorAll(MUI_MENU_TRIGGER_SELECTOR).length;
+  const trackMenuButtonCount = document.querySelectorAll(
+    MUI_TRACK_ACTIONS_SELECTOR
+  ).length;
   const containers = getMuiActionsContainers();
 
   logger.info(
-    `MUI: ${menuButtonCount} dropdown-trigger button(s) found, ${containers.length} valid action row(s)`
+    `MUI: ${trackMenuButtonCount} track menu button(s) found, ${containers.length} valid action row(s)`
   );
 
   for (const container of containers) {
-    const downloadButton = createMuiDownloadButton(container);
-    const moreMenuButton = container.querySelector(MUI_MENU_TRIGGER_SELECTOR);
+    const moreMenuButton = container.querySelector(MUI_TRACK_ACTIONS_SELECTOR);
+    const downloadButton = createMuiDownloadButton(moreMenuButton);
 
     attachDownloadClickHandler(downloadButton);
 
@@ -925,7 +956,7 @@ const insertMuiDownloadButtons = () => {
  * setting that lets us reach the crossfade iframe also injects us into
  * any other soundcloud.com-hosted iframe anywhere, including that
  * classic widget embedded on someone else's page, which we have no
- * reason to touch. This guards against that side effect.
+ * reason to touch.
  * @returns {boolean}
  */
 const isThirdPartyEmbed = () => {
@@ -985,9 +1016,10 @@ const findClientIdInDocument = async (doc) => {
  * and does reference one; the top frame scans its own document, same as
  * always.
  *
- * Does nothing on a third-party embed (isThirdPartyEmbed() checked here
- * too, not just relied on via the interval, since this function runs
- * unconditionally at startup) - not an error, just nothing to do.
+ * Does nothing on a third-party embed. isThirdPartyEmbed() is checked
+ * here as well as in the interval, since this function runs
+ * unconditionally at startup. Having nothing to do there is not a
+ * failure, so it logs and returns instead of throwing.
  */
 const setClientId = async () => {
   if (isThirdPartyEmbed()) {
