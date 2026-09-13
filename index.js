@@ -369,7 +369,22 @@ const resolveTrack = async (url) => {
     throw new Error(`Error while resolving '${url}'...`);
   }
 
-  return resolveRes.json();
+  const resolveData = await resolveRes.json();
+
+  // Only a track carries media.transcodings. Without this check, a
+  // download button that ended up somewhere it shouldn't - a playlist
+  // or profile header, if SoundCloud ever gives one the same markup the
+  // track header has - would fail inside fetchStreamData with a
+  // TypeError, and that is what the error toast would show the user.
+  if (resolveData?.kind !== "track") {
+    throw new Error(
+      `This isn't a track, so there's nothing to download (SoundCloud resolved it as "${
+        resolveData?.kind || "unknown"
+      }").`
+    );
+  }
+
+  return resolveData;
 };
 
 /**
