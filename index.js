@@ -413,7 +413,15 @@ const getTrackURL = (buttonElement) => {
     // click handler on a button that watchNewTracksInterval only inserts
     // after isThirdPartyEmbed() has already confirmed window.top is
     // accessible and on soundcloud.com.
-    return window.top !== window ? window.top.location.href : document.URL;
+    //
+    // The query string goes, the path stays. A track shared through a
+    // secret link carries its token as a path segment
+    // (/<user>/<track>/s-XXXXXX), and that segment is what makes the
+    // resolve call return a private track.
+    const pageUrl =
+      window.top !== window ? window.top.location.href : document.URL;
+
+    return pageUrl.split("?")[0];
   }
 
   const links = node.querySelectorAll("a");
