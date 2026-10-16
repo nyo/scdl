@@ -254,6 +254,193 @@ const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
 };
 
 /**
+ * Bitrate of the mp3 encoded from an AAC stream. SoundCloud's AAC is
+ * 160 kbps at most, so a higher mp3 bitrate adds no quality back. It
+ * keeps the loss from encoding a second time as low as possible.
+ */
+const MP3_ENCODE_BITRATE_KBPS = 320;
+
+/**
+ * Samples per channel handed to the mp3 encoder per call, 16 mp3
+ * frames of 1152 samples. The page runs between calls, so this sets how
+ * long it stays blocked: about 30 ms per call.
+ */
+const MP3_ENCODE_CHUNK_SAMPLES = 1152 * 16;
+
+/**
+ * Let the page handle its pending events before going on. Not a
+ * setTimeout: timers are throttled to once a second in background tabs,
+ * which would stretch the encoding to minutes if the user switches tabs.
+ * A MessageChannel message is not a timer.
+ * @returns {Promise<void>}
+ */
+const yieldToPage = () =>
+  new Promise((resolve) => {
+    const channel = new MessageChannel();
+
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+
+/**
+ * Encode decoded audio to mp3 with lamejs, one chunk at a time.
+ *
+ * Samples are copied out with copyFromChannel rather than read from
+ * getChannelData: the AudioBuffer belongs to the page, and reading a
+ * page-owned array element by element from a content script goes
+ * through Firefox's Xray wrappers on every access.
+ * @param {AudioBuffer} audioBuffer
+ * @returns {Promise<ArrayBuffer>}
+ */
+const encodeMp3 = async (audioBuffer) => {
+  // mp3 holds one or two channels: a mono track stays mono, anything
+  // wider keeps its first two
+  const channelCount = Math.min(audioBuffer.numberOfChannels, 2);
+  // the encoder, set to the track's sample rate and the target bitrate
+  const encoder = new lamejs.Mp3Encoder(
+    channelCount,
+    audioBuffer.sampleRate,
+    MP3_ENCODE_BITRATE_KBPS
+  );
+  // buffers reused for every chunk: one for the samples copied out of
+  // the decoded audio, as floats from -1 to 1, and one per channel for
+  // the same samples as the 16-bit integers lamejs takes
+  const floatChunk = new Float32Array(MP3_ENCODE_CHUNK_SAMPLES);
+  const pcmChunks = Array.from(
+    { length: channelCount },
+    () => new Int16Array(MP3_ENCODE_CHUNK_SAMPLES)
+  );
+  // the mp3 bytes, in the order the encoder hands them back
+  const mp3Parts = [];
+
+  // walk through the track one chunk at a time
+  for (
+    let offset = 0;
+    offset < audioBuffer.length;
+    offset += MP3_ENCODE_CHUNK_SAMPLES
+  ) {
+    // every chunk is full except usually the last one
+    const size = Math.min(
+      MP3_ENCODE_CHUNK_SAMPLES,
+      audioBuffer.length - offset
+    );
+
+    // for each channel, copy this chunk's samples, then convert them
+    for (let channel = 0; channel < channelCount; channel++) {
+      const samples = floatChunk.subarray(0, size);
+      const pcm = pcmChunks[channel];
+
+      audioBuffer.copyFromChannel(samples, channel, offset);
+
+      // float to 16-bit integer: -1..1 becomes -32767..32767. A sample
+      // past -1 or 1 is clamped first, so it can't wrap around
+      for (let i = 0; i < size; i++) {
+        const sample = samples[i];
+
+        pcm[i] = (sample < -1 ? -1 : sample > 1 ? 1 : sample) * 0x7fff;
+      }
+    }
+
+    // encode the chunk. lamejs can return fewer bytes than expected, or
+    // none: it holds samples back until it has whole mp3 frames
+    mp3Parts.push(
+      encoder.encodeBuffer(...pcmChunks.map((pcm) => pcm.subarray(0, size)))
+    );
+
+    // let the page handle clicks, scrolling and playback before the
+    // next chunk
+    await yieldToPage();
+  }
+
+  // write out the samples the encoder still holds: the end of the track
+  mp3Parts.push(encoder.flush());
+
+  // join the parts into one mp3 file
+  return blobToArrayBuffer(new Blob(mp3Parts));
+};
+
+/**
+ * Fetch a URL from SoundCloud's media CDN the way the page itself does.
+ *
+ * The CDN only sends CORS headers when the request carries an Origin
+ * header. In Firefox MV2, the content script's own fetch sends none,
+ * and the CDN's domain isn't in the add-on's permissions, so Firefox
+ * blocks the response with a NetworkError. content.fetch sends the
+ * request as the page would, with its Origin.
+ * @param {string} url
+ * @returns {Promise<Response>}
+ */
+const fetchAsPage = (url) => content.fetch(url);
+
+/**
+ * Resolve track with an AAC 'hls' transcoding: fetch the init segment
+ * and every media segment, decode the joined file (fragmented MP4) with
+ * the browser's own AAC decoder, then encode it to mp3.
+ * @param {string} playlistUrl
+ * @param {ArrayBuffer} artworkBuffer
+ * @param {object} metadata
+ */
+const resolveAacHlsBuffer = async (playlistUrl, artworkBuffer, metadata) => {
+  const playlistRes = await fetchAsPage(playlistUrl);
+
+  if (playlistRes.status !== 200) {
+    throw new Error("Error while fetching 'hls' track URL...");
+  }
+
+  const playlist = await playlistRes.text();
+
+  // the init segment (EXT-X-MAP) holds the moov box the decoder needs,
+  // so it goes first
+  const initUri = playlist.match(/#EXT-X-MAP:.*URI="([^"]+)"/)?.[1];
+
+  // in an HLS playlist, lines starting with "#" are tags (#EXTINF...),
+  // and every other non-empty line is a media segment's URI, in play
+  // order. trim() also drops the "\r" of CRLF line endings
+  const segmentUris = playlist
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  const segmentBuffers = await Promise.all(
+    [initUri, ...segmentUris].filter(Boolean).map(async (uri) => {
+      const segmentRes = await fetchAsPage(
+        new URL(uri, playlistUrl).toString()
+      );
+
+      if (segmentRes.status !== 200) {
+        throw new Error("Error while fetching 'hls' track segment...");
+      }
+
+      return segmentRes.arrayBuffer();
+    })
+  );
+
+  const aacBuffer = await blobToArrayBuffer(new Blob(segmentBuffers));
+
+  let audioBuffer;
+  try {
+    // decodeAudioData is a method of an audio context. An offline one
+    // never plays anything, and only its sample rate matters here:
+    // decodeAudioData resamples to it, and 44100 Hz is the rate of the
+    // AAC streams checked, so nothing gets resampled. The 2 channels and
+    // the 1-frame length are for rendering, which never runs
+    audioBuffer = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(
+      aacBuffer
+    );
+  } catch (err) {
+    logger.error(err);
+    throw new Error("Your browser couldn't decode this track's AAC stream.");
+  }
+
+  const mp3Buffer = await encodeMp3(audioBuffer);
+
+  await tagAndSaveTrack(mp3Buffer, artworkBuffer, metadata);
+};
+
+/**
  * Resolve track artwork URL (or user avatar URL) to an ArrayBuffer.
  * @param {string} artworkUrl
  * @returns {Promise<ArrayBuffer>}
@@ -280,6 +467,25 @@ const DRM_ERROR_MESSAGE =
   "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
 
 /**
+ * True for an unencrypted HLS transcoding of AAC in fragmented MP4
+ * (mime type `audio/mp4; codecs="mp4a.40.2"`).
+ * @param {object} transcoding
+ * @returns {boolean}
+ */
+const isAacHlsTranscoding = (transcoding) =>
+  transcoding.format?.protocol === "hls" &&
+  transcoding.format?.mime_type?.startsWith("audio/mp4");
+
+/**
+ * Bitrate in kbps read from an AAC transcoding's preset ("aac_160k"),
+ * or 0 when the preset doesn't give one.
+ * @param {object} transcoding
+ * @returns {number}
+ */
+const getAacPresetBitrate = (transcoding) =>
+  Number(transcoding.preset?.match(/^aac_(\d+)k$/)?.[1]) || 0;
+
+/**
  * Find a working transcoding for the track and return its data.
  * @param {object[]} transcodings
  * @returns {Promise<any>}
@@ -287,7 +493,7 @@ const DRM_ERROR_MESSAGE =
 const fetchStreamData = async (transcodings) => {
   // keep only 'audio/mpeg' mime types
   // & prioritizes 'progressive' transcoding format
-  const filteredTranscodings = transcodings.reduce((acc, t) => {
+  const mp3Transcodings = transcodings.reduce((acc, t) => {
     if (t.format.mime_type === "audio/mpeg") {
       if (t.format.protocol === "progressive") {
         acc.unshift(t);
@@ -299,8 +505,17 @@ const fetchStreamData = async (transcodings) => {
     return acc;
   }, []);
 
-  // soundcloud advertises encrypted-only transcodings for DRM-protected tracks;
-  // no mp3 stream is ever offered for those.
+  // soundcloud no longer serves mp3 for most tracks, only AAC over HLS.
+  // AAC comes after mp3, highest bitrate first: it has to be re-encoded
+  // to mp3, which costs time and some quality.
+  const aacTranscodings = transcodings
+    .filter(isAacHlsTranscoding)
+    .sort((a, b) => getAacPresetBitrate(b) - getAacPresetBitrate(a));
+
+  const filteredTranscodings = [...mp3Transcodings, ...aacTranscodings];
+
+  // soundcloud advertises encrypted-only transcodings for DRM-protected
+  // tracks; no unencrypted stream is ever offered for those.
   const hasEncryptedTranscoding = transcodings.some((t) =>
     t.format?.protocol?.includes("encrypted")
   );
@@ -335,7 +550,7 @@ const fetchStreamData = async (transcodings) => {
     );
   }
 
-  // legacy mp3 transcodings advertised but every endpoint 404'd:
+  // unencrypted transcodings advertised but every endpoint 404'd:
   // soundcloud is dropping unencrypted streams for tracks moved under DRM
   if (hasEncryptedTranscoding) {
     logger.error(
@@ -577,6 +792,8 @@ const downloadTrack = async (buttonElement) => {
 
   if (streamData.protocol === "progressive") {
     await resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
+  } else if (isAacHlsTranscoding({ format: streamData })) {
+    await resolveAacHlsBuffer(streamData.url, artworkBuffer, resolveData);
   } else if (streamData.protocol === "hls") {
     await resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
   } else {
