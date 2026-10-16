@@ -56,7 +56,7 @@ The file is built in your browser, straight from SoundCloud. Nothing goes throug
 
 The add-on only asks for access to `soundcloud.com` and for storage to keep your filename format.
 
-SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [lamejs](https://github.com/zhuker/lamejs). This takes about half a minute for a 4-minute track.
+SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [lamejs](https://github.com/zhuker/lamejs). This takes about half a minute for a 4-minute track; a box in the bottom right corner shows the progress.
 
 No background process, ~85 KB.
 

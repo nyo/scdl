@@ -293,9 +293,10 @@ const yieldToPage = () =>
  * page-owned array element by element from a content script goes
  * through Firefox's Xray wrappers on every access.
  * @param {AudioBuffer} audioBuffer
+ * @param {(ratio: number) => void} onProgress
  * @returns {Promise<ArrayBuffer>}
  */
-const encodeMp3 = async (audioBuffer) => {
+const encodeMp3 = async (audioBuffer, onProgress) => {
   // mp3 holds one or two channels: a mono track stays mono, anything
   // wider keeps its first two
   const channelCount = Math.min(audioBuffer.numberOfChannels, 2);
@@ -350,6 +351,8 @@ const encodeMp3 = async (audioBuffer) => {
       encoder.encodeBuffer(...pcmChunks.map((pcm) => pcm.subarray(0, size)))
     );
 
+    onProgress((offset + size) / audioBuffer.length);
+
     // let the page handle clicks, scrolling and playback before the
     // next chunk
     await yieldToPage();
@@ -382,8 +385,16 @@ const fetchAsPage = (url) => content.fetch(url);
  * @param {string} playlistUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
+ * @param {(message: string) => void} onProgress
  */
-const resolveAacHlsBuffer = async (playlistUrl, artworkBuffer, metadata) => {
+const resolveAacHlsBuffer = async (
+  playlistUrl,
+  artworkBuffer,
+  metadata,
+  onProgress
+) => {
+  onProgress("Downloading track…");
+
   const playlistRes = await fetchAsPage(playlistUrl);
 
   if (playlistRes.status !== 200) {
@@ -420,6 +431,8 @@ const resolveAacHlsBuffer = async (playlistUrl, artworkBuffer, metadata) => {
 
   const aacBuffer = await blobToArrayBuffer(new Blob(segmentBuffers));
 
+  onProgress("Decoding track…");
+
   let audioBuffer;
   try {
     // decodeAudioData is a method of an audio context. An offline one
@@ -435,7 +448,15 @@ const resolveAacHlsBuffer = async (playlistUrl, artworkBuffer, metadata) => {
     throw new Error("Your browser couldn't decode this track's AAC stream.");
   }
 
-  const mp3Buffer = await encodeMp3(audioBuffer);
+  let lastPercent;
+  const mp3Buffer = await encodeMp3(audioBuffer, (ratio) => {
+    const percent = Math.floor(ratio * 100);
+
+    if (percent !== lastPercent) {
+      lastPercent = percent;
+      onProgress(`Converting to mp3… ${percent}%`);
+    }
+  });
 
   await tagAndSaveTrack(mp3Buffer, artworkBuffer, metadata);
 };
@@ -677,6 +698,11 @@ const getTrackURL = (buttonElement) => {
 const ERROR_BACKGROUND_COLOR = "#ff0000";
 
 /**
+ * Background of the toast while a track is being converted.
+ */
+const PROGRESS_BACKGROUND_COLOR = "#333";
+
+/**
  * Get the single shared toast element, creating and appending it to the
  * page on first use. One element is reused for every message, so a
  * second message while the first is still showing replaces it instead
@@ -719,12 +745,43 @@ const showErrorToast = (message) => {
   const toast = getToastElement();
 
   toast.textContent = message;
+  toast.style.backgroundColor = ERROR_BACKGROUND_COLOR;
   toast.style.display = "block";
+  toast._scdlIsProgress = false;
 
   clearTimeout(window.SCDL__TOAST_TIMEOUT);
   window.SCDL__TOAST_TIMEOUT = setTimeout(() => {
     toast.style.display = "none";
   }, 5000);
+};
+
+/**
+ * Show the given progress message in the shared toast until
+ * hideProgressToast is called or an error replaces it.
+ * @param {string} message
+ */
+const showProgressToast = (message) => {
+  const toast = getToastElement();
+
+  clearTimeout(window.SCDL__TOAST_TIMEOUT);
+
+  toast.textContent = message;
+  toast.style.backgroundColor = PROGRESS_BACKGROUND_COLOR;
+  toast.style.display = "block";
+  toast._scdlIsProgress = true;
+};
+
+/**
+ * Hide the shared toast if it shows a progress message. An error shown
+ * since stays up for its own 5 seconds.
+ */
+const hideProgressToast = () => {
+  const toast = window.SCDL__TOAST_ELEMENT;
+
+  if (toast?._scdlIsProgress) {
+    toast.style.display = "none";
+    toast._scdlIsProgress = false;
+  }
 };
 
 /**
@@ -793,7 +850,12 @@ const downloadTrack = async (buttonElement) => {
   if (streamData.protocol === "progressive") {
     await resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
   } else if (isAacHlsTranscoding({ format: streamData })) {
-    await resolveAacHlsBuffer(streamData.url, artworkBuffer, resolveData);
+    await resolveAacHlsBuffer(
+      streamData.url,
+      artworkBuffer,
+      resolveData,
+      showProgressToast
+    );
   } else if (streamData.protocol === "hls") {
     await resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
   } else {
@@ -813,6 +875,7 @@ const attachDownloadClickHandler = (button) => {
     async () => {
       try {
         await downloadTrack(button);
+        hideProgressToast();
       } catch (err) {
         logger.error(err);
         showDownloadErrorFeedback(button, err.message);
