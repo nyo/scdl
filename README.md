@@ -56,7 +56,7 @@ The file is built in your browser, straight from SoundCloud. Nothing goes throug
 
 The add-on only asks for access to `soundcloud.com` and for storage to keep your filename format.
 
-No background process, ~29 KB.
+No background process, ~85 KB.
 
 ## Limits
 
@@ -81,3 +81,4 @@ bash build.sh # creates a `scdl-{version}.zip` file
 
 - [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) for mp3s tagging
 - [FileSaver.js](https://github.com/eligrey/FileSaver.js) for saving files client-side
+- [lamejs](https://github.com/zhuker/lamejs) 1.2.1 (LGPL-3.0), a JavaScript rewrite of [LAME](https://lame.sourceforge.io), for encoding mp3s.

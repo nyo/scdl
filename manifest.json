@@ -34,7 +34,8 @@
         "shared.js",
         "index.js",
         "libs/browser-id3-writer.js",
-        "libs/FileSaver.min.js"
+        "libs/FileSaver.min.js",
+        "libs/lame.min.js"
       ],
       "run_at": "document_idle"
     }
