@@ -5,8 +5,8 @@ window.SCDL__LAST_URL = null;
 window.SCDL__NB_CLASSIC_BUTTON_GROUPS = 0;
 window.SCDL__NB_MUI_MENU_BUTTONS = 0;
 window.SCDL__DOM_ELEMENTS = [];
-window.SCDL__ERROR_TOAST_ELEMENT = null;
-window.SCDL__ERROR_TOAST_TIMEOUT = null;
+window.SCDL__TOAST_ELEMENT = null;
+window.SCDL__TOAST_TIMEOUT = null;
 
 /**
  * Label for the frame this code runs in: "top frame" or "iframe".
@@ -677,15 +677,15 @@ const getTrackURL = (buttonElement) => {
 const ERROR_BACKGROUND_COLOR = "#ff0000";
 
 /**
- * Get the single shared error toast element, creating and appending it
- * to the page on first use. One element is reused for every error, so a
- * second error while the first is still showing replaces its message
- * instead of stacking a duplicate on screen.
+ * Get the single shared toast element, creating and appending it to the
+ * page on first use. One element is reused for every message, so a
+ * second message while the first is still showing replaces it instead
+ * of stacking a duplicate on screen.
  * @returns {HTMLElement}
  */
-const getErrorToastElement = () => {
-  if (window.SCDL__ERROR_TOAST_ELEMENT) {
-    return window.SCDL__ERROR_TOAST_ELEMENT;
+const getToastElement = () => {
+  if (window.SCDL__TOAST_ELEMENT) {
+    return window.SCDL__TOAST_ELEMENT;
   }
 
   const toast = document.createElement("div");
@@ -705,7 +705,7 @@ const getErrorToastElement = () => {
   toast.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.4)";
 
   document.body.appendChild(toast);
-  window.SCDL__ERROR_TOAST_ELEMENT = toast;
+  window.SCDL__TOAST_ELEMENT = toast;
 
   return toast;
 };
@@ -716,13 +716,13 @@ const getErrorToastElement = () => {
  * @param {string} message
  */
 const showErrorToast = (message) => {
-  const toast = getErrorToastElement();
+  const toast = getToastElement();
 
   toast.textContent = message;
   toast.style.display = "block";
 
-  clearTimeout(window.SCDL__ERROR_TOAST_TIMEOUT);
-  window.SCDL__ERROR_TOAST_TIMEOUT = setTimeout(() => {
+  clearTimeout(window.SCDL__TOAST_TIMEOUT);
+  window.SCDL__TOAST_TIMEOUT = setTimeout(() => {
     toast.style.display = "none";
   }, 5000);
 };
