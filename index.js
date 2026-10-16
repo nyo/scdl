@@ -7,6 +7,8 @@ window.SCDL__NB_MUI_MENU_BUTTONS = 0;
 window.SCDL__DOM_ELEMENTS = [];
 window.SCDL__TOAST_ELEMENT = null;
 window.SCDL__TOAST_TIMEOUT = null;
+window.SCDL__TOAST_NOTICE_TIMEOUT = null;
+window.SCDL__IS_DOWNLOADING = false;
 
 /**
  * Label for the frame this code runs in: "top frame" or "iframe".
@@ -393,8 +395,6 @@ const resolveAacHlsBuffer = async (
   metadata,
   onProgress
 ) => {
-  onProgress("Downloading track…");
-
   const playlistRes = await fetchAsPage(playlistUrl);
 
   if (playlistRes.status !== 200) {
@@ -730,6 +730,18 @@ const getToastElement = () => {
   toast.style.fontFamily = "sans-serif";
   toast.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.4)";
 
+  const messageElement = document.createElement("div");
+  const noticeElement = document.createElement("div");
+
+  noticeElement.style.display = "none";
+  noticeElement.style.marginTop = "4px";
+  noticeElement.style.fontSize = "12px";
+  noticeElement.style.opacity = "0.8";
+
+  toast.append(messageElement, noticeElement);
+  toast._scdlMessageElement = messageElement;
+  toast._scdlNoticeElement = noticeElement;
+
   document.body.appendChild(toast);
   window.SCDL__TOAST_ELEMENT = toast;
 
@@ -744,7 +756,9 @@ const getToastElement = () => {
 const showErrorToast = (message) => {
   const toast = getToastElement();
 
-  toast.textContent = message;
+  hideToastNotice();
+
+  toast._scdlMessageElement.textContent = message;
   toast.style.backgroundColor = ERROR_BACKGROUND_COLOR;
   toast.style.display = "block";
   toast._scdlIsProgress = false;
@@ -765,7 +779,7 @@ const showProgressToast = (message) => {
 
   clearTimeout(window.SCDL__TOAST_TIMEOUT);
 
-  toast.textContent = message;
+  toast._scdlMessageElement.textContent = message;
   toast.style.backgroundColor = PROGRESS_BACKGROUND_COLOR;
   toast.style.display = "block";
   toast._scdlIsProgress = true;
@@ -779,8 +793,45 @@ const hideProgressToast = () => {
   const toast = window.SCDL__TOAST_ELEMENT;
 
   if (toast?._scdlIsProgress) {
+    hideToastNotice();
     toast.style.display = "none";
     toast._scdlIsProgress = false;
+  }
+};
+
+/**
+ * Show a notice under the progress message for 3 seconds. The progress
+ * message is rewritten several times a second, so a notice in its place
+ * would be overwritten at once.
+ *
+ * Does nothing when no progress message is showing: there is no line
+ * to put the notice under.
+ * @param {string} message
+ */
+const showToastNotice = (message) => {
+  const toast = window.SCDL__TOAST_ELEMENT;
+
+  if (!toast?._scdlIsProgress) return;
+
+  const notice = toast._scdlNoticeElement;
+
+  notice.textContent = message;
+  notice.style.display = "block";
+
+  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
+  window.SCDL__TOAST_NOTICE_TIMEOUT = setTimeout(hideToastNotice, 3000);
+};
+
+/**
+ * Hide the notice under the toast's message, if one is showing.
+ */
+const hideToastNotice = () => {
+  const notice = window.SCDL__TOAST_ELEMENT?._scdlNoticeElement;
+
+  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
+
+  if (notice) {
+    notice.style.display = "none";
   }
 };
 
@@ -866,6 +917,16 @@ const downloadTrack = async (buttonElement) => {
 /**
  * Wire up a download button's click handler: run downloadTrack, and on
  * failure log the error and flash the button red via showDownloadErrorFeedback.
+ * One download runs at a time: while one is running, a click on any
+ * download button is ignored, and a notice under the progress says so.
+ * Two downloads at once would write their progress over each other in
+ * the one toast. And Firefox cancels a download when the site already
+ * started one without a recent click (IsDownloadSpam in Firefox's
+ * nsExternalHelperAppService.cpp), which is the case here: the file is
+ * saved long after the click, once converted.
+ *
+ * The lock is per frame, as every frame runs its own copy of this
+ * script.
  * Shared by both the classic and MUI insertion paths.
  * @param {HTMLElement} button
  */
@@ -873,12 +934,26 @@ const attachDownloadClickHandler = (button) => {
   button.addEventListener(
     "click",
     async () => {
+      if (window.SCDL__IS_DOWNLOADING) {
+        showToastNotice("Another download is in progress.");
+        return;
+      }
+
+      window.SCDL__IS_DOWNLOADING = true;
+
+      // shown at once, before the SoundCloud API calls, so the click
+      // gets an answer and a second click has a line to put its notice
+      // under
+      showProgressToast("Downloading track…");
+
       try {
         await downloadTrack(button);
         hideProgressToast();
       } catch (err) {
         logger.error(err);
         showDownloadErrorFeedback(button, err.message);
+      } finally {
+        window.SCDL__IS_DOWNLOADING = false;
       }
     },
     true
