@@ -170,8 +170,6 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
   filename = sanitizeFilename(filename) || "untitled";
 
   saveAs(writer.getBlob(), `${filename}.mp3`);
-
-  writer.revokeURL(); // memory control
 };
 
 /**
