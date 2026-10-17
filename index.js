@@ -659,15 +659,6 @@ const ERROR_BACKGROUND_COLOR = "#ff0000";
 const PROGRESS_BACKGROUND_COLOR = "#333";
 
 /**
- * Colors of a download button while its track downloads: the button
- * turns dark grey, fills with green from the left as the conversion
- * runs, and its icon turns white, which reads on both. The same on the
- * classic and MUI buttons, whose own colors differ.
- */
-const BUTTON_PROGRESS_DONE_COLOR = "#16a34a";
-const BUTTON_PROGRESS_ICON_COLOR = "#fff";
-
-/**
  * Get the single shared toast element, creating and appending it to the
  * page on first use. One element is reused for every message, so a
  * second message while the first is still showing replaces it instead
@@ -788,6 +779,19 @@ const showToastNotice = (message) => {
 };
 
 /**
+ * Hide the notice under the toast's message, if one is showing.
+ */
+const hideToastNotice = () => {
+  const notice = window.SCDL__TOAST_ELEMENT?._scdlNoticeElement;
+
+  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
+
+  if (notice) {
+    notice.style.display = "none";
+  }
+};
+
+/**
  * Shorten a track title for the progress messages: titles on
  * SoundCloud run long, and the toast is 320 px wide.
  * @param {string} title
@@ -795,6 +799,15 @@ const showToastNotice = (message) => {
  */
 const shortenTitle = (title) =>
   title.length > 40 ? `${title.slice(0, 39).trimEnd()}…` : title;
+
+/**
+ * Colors of a download button while its track downloads: the button
+ * turns dark grey, fills with green from the left as the conversion
+ * runs, and its icon turns white, which reads on both. The same on the
+ * classic and MUI buttons, whose own colors differ.
+ */
+const BUTTON_PROGRESS_DONE_COLOR = "#16a34a";
+const BUTTON_PROGRESS_ICON_COLOR = "#fff";
 
 /**
  * Show a track's progress on its own download button: the message as
@@ -872,19 +885,6 @@ const flashRefusedButton = (button) => {
     button.style.transition = "";
     button._scdlFlashIdleState = undefined;
   }, REFUSED_CLICK_FADE_MS);
-};
-
-/**
- * Hide the notice under the toast's message, if one is showing.
- */
-const hideToastNotice = () => {
-  const notice = window.SCDL__TOAST_ELEMENT?._scdlNoticeElement;
-
-  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
-
-  if (notice) {
-    notice.style.display = "none";
-  }
 };
 
 /**
