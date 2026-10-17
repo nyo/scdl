@@ -445,14 +445,13 @@ const DRM_ERROR_MESSAGE =
   "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
 
 /**
- * True for an unencrypted HLS transcoding of AAC in fragmented MP4
- * (mime type `audio/mp4; codecs="mp4a.40.2"`).
- * @param {object} transcoding
+ * True for the format of an unencrypted HLS transcoding of AAC in
+ * fragmented MP4 (mime type `audio/mp4; codecs="mp4a.40.2"`).
+ * @param {{protocol?: string, mime_type?: string}} format
  * @returns {boolean}
  */
-const isAacHlsTranscoding = (transcoding) =>
-  transcoding.format?.protocol === "hls" &&
-  transcoding.format?.mime_type?.startsWith("audio/mp4");
+const isAacHlsFormat = (format) =>
+  format?.protocol === "hls" && format?.mime_type?.startsWith("audio/mp4");
 
 /**
  * Bitrate in kbps read from an AAC transcoding's preset ("aac_160k"),
@@ -487,7 +486,7 @@ const fetchStreamData = async (transcodings) => {
   // AAC comes after mp3, highest bitrate first: it has to be re-encoded
   // to mp3, which costs time and some quality.
   const aacTranscodings = transcodings
-    .filter(isAacHlsTranscoding)
+    .filter((t) => isAacHlsFormat(t.format))
     .sort((a, b) => getAacPresetBitrate(b) - getAacPresetBitrate(a));
 
   const filteredTranscodings = [...mp3Transcodings, ...aacTranscodings];
@@ -930,6 +929,21 @@ const showDownloadErrorFeedback = (button, message) => {
 };
 
 /**
+ * Add the session's client_id to a stream URL, as SoundCloud's mp3
+ * endpoints require. Not for the AAC playlist URL: it is signed, and
+ * the CDN answers 403 once a query parameter is added to it.
+ * @param {string} url
+ * @returns {string}
+ */
+const withClientId = (url) => {
+  const streamUrl = new URL(url);
+
+  streamUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
+
+  return streamUrl.toString();
+};
+
+/**
  * Get track URL, resolve its metadata, tag and save as .mp3 file.
  * @param {HTMLElement} buttonElement
  */
@@ -947,15 +961,13 @@ const downloadTrack = async (buttonElement) => {
     logger.error(err);
   }
 
-  const streamDataUrl = new URL(streamData.url);
-
-  streamDataUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
-
-  const trackUrl = streamDataUrl.toString();
-
   if (streamData.protocol === "progressive") {
-    await resolveProgressiveBuffer(trackUrl, artworkBuffer, resolveData);
-  } else if (isAacHlsTranscoding({ format: streamData })) {
+    await resolveProgressiveBuffer(
+      withClientId(streamData.url),
+      artworkBuffer,
+      resolveData
+    );
+  } else if (isAacHlsFormat(streamData)) {
     await resolveAacHlsBuffer(
       streamData.url,
       artworkBuffer,
@@ -966,7 +978,11 @@ const downloadTrack = async (buttonElement) => {
       }
     );
   } else if (streamData.protocol === "hls") {
-    await resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
+    await resolveHlsBuffer(
+      withClientId(streamData.url),
+      artworkBuffer,
+      resolveData
+    );
   } else {
     throw new Error("Failed to resolve track: Unknown protocol.");
   }
