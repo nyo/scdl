@@ -387,7 +387,7 @@ const fetchAsPage = (url) => content.fetch(url);
  * @param {string} playlistUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
- * @param {(message: string) => void} onProgress
+ * @param {(message: string, ratio?: number) => void} onProgress
  */
 const resolveAacHlsBuffer = async (
   playlistUrl,
@@ -395,6 +395,10 @@ const resolveAacHlsBuffer = async (
   metadata,
   onProgress
 ) => {
+  const title = shortenTitle(metadata.title || "track");
+
+  onProgress(`Downloading “${title}”…`);
+
   const playlistRes = await fetchAsPage(playlistUrl);
 
   if (playlistRes.status !== 200) {
@@ -431,7 +435,7 @@ const resolveAacHlsBuffer = async (
 
   const aacBuffer = await blobToArrayBuffer(new Blob(segmentBuffers));
 
-  onProgress("Decoding track…");
+  onProgress(`Decoding “${title}”…`);
 
   let audioBuffer;
   try {
@@ -454,7 +458,7 @@ const resolveAacHlsBuffer = async (
 
     if (percent !== lastPercent) {
       lastPercent = percent;
-      onProgress(`Converting to mp3… ${percent}%`);
+      onProgress(`Converting “${title}” to mp3… ${percent}%`, ratio);
     }
   });
 
@@ -703,6 +707,15 @@ const ERROR_BACKGROUND_COLOR = "#ff0000";
 const PROGRESS_BACKGROUND_COLOR = "#333";
 
 /**
+ * Colors of a download button while its track downloads: the button
+ * turns dark grey, fills with green from the left as the conversion
+ * runs, and its icon turns white, which reads on both. The same on the
+ * classic and MUI buttons, whose own colors differ.
+ */
+const BUTTON_PROGRESS_DONE_COLOR = "#16a34a";
+const BUTTON_PROGRESS_ICON_COLOR = "#fff";
+
+/**
  * Get the single shared toast element, creating and appending it to the
  * page on first use. One element is reused for every message, so a
  * second message while the first is still showing replaces it instead
@@ -823,6 +836,54 @@ const showToastNotice = (message) => {
 };
 
 /**
+ * Shorten a track title for the progress messages: titles on
+ * SoundCloud run long, and the toast is 320 px wide.
+ * @param {string} title
+ * @returns {string}
+ */
+const shortenTitle = (title) =>
+  title.length > 40 ? `${title.slice(0, 39).trimEnd()}…` : title;
+
+/**
+ * Show a track's progress on its own download button: the message as
+ * the button's tooltip, and, when ratio (0 to 1) is given, a green fill
+ * from the left over a dark grey background.
+ * @param {HTMLElement} button
+ * @param {string} message
+ * @param {number} [ratio]
+ */
+const setButtonProgress = (button, message, ratio) => {
+  if (button._scdlProgressIdleTitle === undefined) {
+    button._scdlProgressIdleTitle = button.title;
+    button._scdlProgressIdleColor = button.style.color;
+  }
+
+  button.title = message;
+
+  if (ratio !== undefined) {
+    const percent = Math.floor(ratio * 100);
+
+    button.style.backgroundImage = `linear-gradient(to right, ${BUTTON_PROGRESS_DONE_COLOR} ${percent}%, ${PROGRESS_BACKGROUND_COLOR} ${percent}%)`;
+    button.style.color = BUTTON_PROGRESS_ICON_COLOR;
+  }
+};
+
+/**
+ * Remove the progress from a download button: the fill, and the icon
+ * color and tooltip, which get back what they were before the download.
+ * @param {HTMLElement} button
+ */
+const clearButtonProgress = (button) => {
+  if (button._scdlProgressIdleTitle !== undefined) {
+    button.title = button._scdlProgressIdleTitle;
+    button.style.color = button._scdlProgressIdleColor;
+    button._scdlProgressIdleTitle = undefined;
+  }
+
+  button.style.backgroundImage = "";
+};
+
+/**
  * Hide the notice under the toast's message, if one is showing.
  */
 const hideToastNotice = () => {
@@ -905,7 +966,10 @@ const downloadTrack = async (buttonElement) => {
       streamData.url,
       artworkBuffer,
       resolveData,
-      showProgressToast
+      (message, ratio) => {
+        showProgressToast(message);
+        setButtonProgress(buttonElement, message, ratio);
+      }
     );
   } else if (streamData.protocol === "hls") {
     await resolveHlsBuffer(trackUrl, artworkBuffer, resolveData);
@@ -945,12 +1009,15 @@ const attachDownloadClickHandler = (button) => {
       // gets an answer and a second click has a line to put its notice
       // under
       showProgressToast("Downloading track…");
+      setButtonProgress(button, "Downloading track…", 0);
 
       try {
         await downloadTrack(button);
+        clearButtonProgress(button);
         hideProgressToast();
       } catch (err) {
         logger.error(err);
+        clearButtonProgress(button);
         showDownloadErrorFeedback(button, err.message);
       } finally {
         window.SCDL__IS_DOWNLOADING = false;
