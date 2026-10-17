@@ -175,49 +175,58 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
 };
 
 /**
- * Resolve track with 'hls' transcoding format.
+ * Fetch an HLS playlist and its media segments, and join them into one
+ * buffer, in play order.
+ *
+ * In an HLS playlist, lines starting with "#" are tags (#EXTINF...),
+ * and every other non-empty line is a media segment's URI. An
+ * EXT-X-MAP tag names an init segment, which goes first: for fragmented
+ * MP4, it holds the moov box the decoder needs. trim() also drops the
+ * "\r" of CRLF line endings.
+ * @param {string} playlistUrl
+ * @param {(url: string) => Promise<Response>} fetchUrl the add-on's own
+ *   fetch, or the page's (content.fetch) for a CDN outside its permissions
+ * @returns {Promise<ArrayBuffer>}
+ */
+const fetchHlsMedia = async (playlistUrl, fetchUrl) => {
+  const playlistRes = await fetchUrl(playlistUrl);
+
+  if (playlistRes.status !== 200) {
+    throw new Error("Error while fetching 'hls' track URL...");
+  }
+
+  const playlist = await playlistRes.text();
+  const initUri = playlist.match(/#EXT-X-MAP:.*URI="([^"]+)"/)?.[1];
+  const segmentUris = playlist
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  const segmentBuffers = await Promise.all(
+    [initUri, ...segmentUris].filter(Boolean).map(async (uri) => {
+      const segmentRes = await fetchUrl(new URL(uri, playlistUrl).toString());
+
+      if (segmentRes.status !== 200) {
+        throw new Error("Error while fetching 'hls' track segment...");
+      }
+
+      return segmentRes.arrayBuffer();
+    })
+  );
+
+  return new Blob(segmentBuffers).arrayBuffer();
+};
+
+/**
+ * Resolve track with an mp3 'hls' transcoding.
  * @param {string} trackUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
  */
-const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
-  return new Promise((resolve, reject) => {
-    const audioElement = new Audio();
-    const mediaSource = new MediaSource();
+const resolveHlsBuffer = async (trackUrl, artworkBuffer, metadata) => {
+  const trackBuffer = await fetchHlsMedia(trackUrl, (url) => fetch(url));
 
-    const handleMediaSourceOpen = async (event) => {
-      event.preventDefault();
-
-      try {
-        const trackRes = await fetch(trackUrl);
-
-        if (trackRes.status !== 200) {
-          throw new Error("Error while fetching 'hls' track URL...");
-        }
-
-        const trackData = await trackRes.text();
-
-        const mp3Urls = trackData
-          .split("\n")
-          .filter((line) => line && !line.startsWith("#"))
-          .map((line) => new URL(line, trackUrl).toString());
-
-        const arrayBuffers = await Promise.all(
-          mp3Urls.map((url) => fetch(url).then((res) => res.arrayBuffer()))
-        );
-        const trackArrayBuffer = await new Blob(arrayBuffers).arrayBuffer();
-
-        await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
-
-        resolve();
-      } catch (err) {
-        reject(err);
-      }
-    };
-
-    audioElement.src = URL.createObjectURL(mediaSource);
-    mediaSource.addEventListener("sourceopen", handleMediaSourceOpen);
-  });
+  await tagAndSaveTrack(trackBuffer, artworkBuffer, metadata);
 };
 
 /**
@@ -351,22 +360,9 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
 };
 
 /**
- * Fetch a URL from SoundCloud's media CDN the way the page itself does.
- *
- * The CDN only sends CORS headers when the request carries an Origin
- * header. In Firefox MV2, the content script's own fetch sends none,
- * and the CDN's domain isn't in the add-on's permissions, so Firefox
- * blocks the response with a NetworkError. content.fetch sends the
- * request as the page would, with its Origin.
- * @param {string} url
- * @returns {Promise<Response>}
- */
-const fetchAsPage = (url) => content.fetch(url);
-
-/**
- * Resolve track with an AAC 'hls' transcoding: fetch the init segment
- * and every media segment, decode the joined file (fragmented MP4) with
- * the browser's own AAC decoder, then encode it to mp3.
+ * Resolve track with an AAC 'hls' transcoding: fetch its segments,
+ * decode the joined file (fragmented MP4) with the browser's own AAC
+ * decoder, then encode it to mp3.
  * @param {string} playlistUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
@@ -382,41 +378,15 @@ const resolveAacHlsBuffer = async (
 
   onProgress(`Downloading “${title}”…`);
 
-  const playlistRes = await fetchAsPage(playlistUrl);
-
-  if (playlistRes.status !== 200) {
-    throw new Error("Error while fetching 'hls' track URL...");
-  }
-
-  const playlist = await playlistRes.text();
-
-  // the init segment (EXT-X-MAP) holds the moov box the decoder needs,
-  // so it goes first
-  const initUri = playlist.match(/#EXT-X-MAP:.*URI="([^"]+)"/)?.[1];
-
-  // in an HLS playlist, lines starting with "#" are tags (#EXTINF...),
-  // and every other non-empty line is a media segment's URI, in play
-  // order. trim() also drops the "\r" of CRLF line endings
-  const segmentUris = playlist
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-
-  const segmentBuffers = await Promise.all(
-    [initUri, ...segmentUris].filter(Boolean).map(async (uri) => {
-      const segmentRes = await fetchAsPage(
-        new URL(uri, playlistUrl).toString()
-      );
-
-      if (segmentRes.status !== 200) {
-        throw new Error("Error while fetching 'hls' track segment...");
-      }
-
-      return segmentRes.arrayBuffer();
-    })
+  // fetched the way the page itself does. The CDN only sends CORS
+  // headers when the request carries an Origin header. In Firefox MV2,
+  // the content script's own fetch sends none, and the CDN's domain
+  // isn't in the add-on's permissions, so Firefox blocks the response
+  // with a NetworkError. content.fetch sends the request as the page
+  // would, with its Origin
+  const aacBuffer = await fetchHlsMedia(playlistUrl, (url) =>
+    content.fetch(url)
   );
-
-  const aacBuffer = await new Blob(segmentBuffers).arrayBuffer();
 
   onProgress(`Decoding “${title}”…`);
 
