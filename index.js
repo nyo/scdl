@@ -366,7 +366,7 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
  * @param {string} playlistUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
- * @param {(message: string, ratio?: number) => void} onProgress
+ * @param {(message: string, percent?: number) => void} onProgress
  */
 const resolveAacHlsBuffer = async (
   playlistUrl,
@@ -411,7 +411,7 @@ const resolveAacHlsBuffer = async (
 
     if (percent !== lastPercent) {
       lastPercent = percent;
-      onProgress(`Converting “${title}” to mp3… ${percent}%`, ratio);
+      onProgress(`Converting “${title}” to mp3… ${percent}%`, percent);
     }
   });
 
@@ -798,13 +798,13 @@ const shortenTitle = (title) =>
 
 /**
  * Show a track's progress on its own download button: the message as
- * the button's tooltip, and, when ratio (0 to 1) is given, a green fill
- * from the left over a dark grey background.
+ * the button's tooltip, and, when percent (0 to 100) is given, a green
+ * fill from the left over a dark grey background.
  * @param {HTMLElement} button
  * @param {string} message
- * @param {number} [ratio]
+ * @param {number} [percent]
  */
-const setButtonProgress = (button, message, ratio) => {
+const setButtonProgress = (button, message, percent) => {
   if (button._scdlProgressIdleTitle === undefined) {
     button._scdlProgressIdleTitle = button.title;
     button._scdlProgressIdleColor = button.style.color;
@@ -812,9 +812,7 @@ const setButtonProgress = (button, message, ratio) => {
 
   button.title = message;
 
-  if (ratio !== undefined) {
-    const percent = Math.floor(ratio * 100);
-
+  if (percent !== undefined) {
     button.style.backgroundImage = `linear-gradient(to right, ${BUTTON_PROGRESS_DONE_COLOR} ${percent}%, ${PROGRESS_BACKGROUND_COLOR} ${percent}%)`;
     button.style.color = BUTTON_PROGRESS_ICON_COLOR;
   }
@@ -972,9 +970,9 @@ const downloadTrack = async (buttonElement) => {
       streamData.url,
       artworkBuffer,
       resolveData,
-      (message, ratio) => {
+      (message, percent) => {
         showProgressToast(message);
-        setButtonProgress(buttonElement, message, ratio);
+        setButtonProgress(buttonElement, message, percent);
       }
     );
   } else if (streamData.protocol === "hls") {
