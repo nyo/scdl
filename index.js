@@ -648,10 +648,11 @@ const getTrackURL = (buttonElement) => {
 };
 
 /**
- * Shared "error" red, used for both the toast background and the download
- * button's error background so they read as the same state.
+ * Shared "error" red: the toast's and the download button's background
+ * on an error, the refused button's flash, and the notice's text, so
+ * they all read as the same state.
  */
-const ERROR_BACKGROUND_COLOR = "#ff0000";
+const ERROR_COLOR = "#ff0000";
 
 /**
  * Background of the toast while a track is being converted.
@@ -680,7 +681,7 @@ const getToastElement = () => {
   toast.style.maxWidth = "320px";
   toast.style.padding = "12px 16px";
   toast.style.borderRadius = "6px";
-  toast.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  toast.style.backgroundColor = ERROR_COLOR;
   toast.style.color = "#fff";
   toast.style.fontSize = "14px";
   toast.style.fontFamily = "sans-serif";
@@ -692,7 +693,7 @@ const getToastElement = () => {
   noticeElement.style.display = "none";
   noticeElement.style.marginTop = "4px";
   noticeElement.style.fontSize = "12px";
-  noticeElement.style.color = ERROR_BACKGROUND_COLOR;
+  noticeElement.style.color = ERROR_COLOR;
 
   toast.append(messageElement, noticeElement);
   toast._scdlMessageElement = messageElement;
@@ -715,7 +716,7 @@ const showErrorToast = (message) => {
   hideToastNotice();
 
   toast._scdlMessageElement.textContent = message;
-  toast.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  toast.style.backgroundColor = ERROR_COLOR;
   toast.style.display = "block";
   toast._scdlIsProgress = false;
 
@@ -873,7 +874,7 @@ const flashRefusedButton = (button) => {
   // switch to red with no transition, and make the browser apply it
   // (reading offsetWidth does), so the fade below starts from red
   button.style.transition = "none";
-  button.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  button.style.backgroundColor = ERROR_COLOR;
   button.style.color = "#fff";
   void button.offsetWidth;
 
@@ -915,7 +916,7 @@ const showDownloadErrorFeedback = (button, message) => {
   }
 
   button.title = message;
-  button.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  button.style.backgroundColor = ERROR_COLOR;
   button.style.color = "#fff";
 
   button._scdlResetTimeout = setTimeout(() => {
