@@ -8,7 +8,7 @@ window.SCDL__DOM_ELEMENTS = [];
 window.SCDL__TOAST_ELEMENT = null;
 window.SCDL__TOAST_TIMEOUT = null;
 window.SCDL__TOAST_NOTICE_TIMEOUT = null;
-window.SCDL__IS_DOWNLOADING = false;
+window.SCDL__DOWNLOADING_BUTTON = null;
 
 /**
  * Label for the frame this code runs in: "top frame" or "iframe".
@@ -749,7 +749,7 @@ const getToastElement = () => {
   noticeElement.style.display = "none";
   noticeElement.style.marginTop = "4px";
   noticeElement.style.fontSize = "12px";
-  noticeElement.style.opacity = "0.8";
+  noticeElement.style.color = ERROR_BACKGROUND_COLOR;
 
   toast.append(messageElement, noticeElement);
   toast._scdlMessageElement = messageElement;
@@ -884,6 +884,47 @@ const clearButtonProgress = (button) => {
 };
 
 /**
+ * How long a download button whose click was refused takes to fade
+ * from red back to its own colors.
+ */
+const REFUSED_CLICK_FADE_MS = 2000;
+
+/**
+ * Turn a download button red, then fade it back to its own colors: its
+ * click was refused because another track is downloading. A new click
+ * during the fade starts it again.
+ * @param {HTMLElement} button
+ */
+const flashRefusedButton = (button) => {
+  clearTimeout(button._scdlFlashTimeout);
+
+  if (button._scdlFlashIdleState === undefined) {
+    button._scdlFlashIdleState = {
+      backgroundColor: button.style.backgroundColor,
+      color: button.style.color,
+    };
+  }
+
+  const idleState = button._scdlFlashIdleState;
+
+  // switch to red with no transition, and make the browser apply it
+  // (reading offsetWidth does), so the fade below starts from red
+  button.style.transition = "none";
+  button.style.backgroundColor = ERROR_BACKGROUND_COLOR;
+  button.style.color = "#fff";
+  void button.offsetWidth;
+
+  button.style.transition = `background-color ${REFUSED_CLICK_FADE_MS}ms ease-out, color ${REFUSED_CLICK_FADE_MS}ms ease-out`;
+  button.style.backgroundColor = idleState.backgroundColor;
+  button.style.color = idleState.color;
+
+  button._scdlFlashTimeout = setTimeout(() => {
+    button.style.transition = "";
+    button._scdlFlashIdleState = undefined;
+  }, REFUSED_CLICK_FADE_MS);
+};
+
+/**
  * Hide the notice under the toast's message, if one is showing.
  */
 const hideToastNotice = () => {
@@ -981,8 +1022,10 @@ const downloadTrack = async (buttonElement) => {
 /**
  * Wire up a download button's click handler: run downloadTrack, and on
  * failure log the error and flash the button red via showDownloadErrorFeedback.
- * One download runs at a time: while one is running, a click on any
- * download button is ignored, and a notice under the progress says so.
+ * One download runs at a time. While one is running, a click on another
+ * track's button is ignored: the button flashes red and a notice under
+ * the progress says so. A click on the button of the track downloading
+ * does nothing.
  * Two downloads at once would write their progress over each other in
  * the one toast. And Firefox cancels a download when the site already
  * started one without a recent click (IsDownloadSpam in Firefox's
@@ -998,12 +1041,18 @@ const attachDownloadClickHandler = (button) => {
   button.addEventListener(
     "click",
     async () => {
-      if (window.SCDL__IS_DOWNLOADING) {
-        showToastNotice("Another download is in progress.");
+      const downloadingButton = window.SCDL__DOWNLOADING_BUTTON;
+
+      if (downloadingButton) {
+        if (downloadingButton !== button) {
+          flashRefusedButton(button);
+          showToastNotice("Another download is in progress.");
+        }
+
         return;
       }
 
-      window.SCDL__IS_DOWNLOADING = true;
+      window.SCDL__DOWNLOADING_BUTTON = button;
 
       // shown at once, before the SoundCloud API calls, so the click
       // gets an answer and a second click has a line to put its notice
@@ -1020,7 +1069,7 @@ const attachDownloadClickHandler = (button) => {
         clearButtonProgress(button);
         showDownloadErrorFeedback(button, err.message);
       } finally {
-        window.SCDL__IS_DOWNLOADING = false;
+        window.SCDL__DOWNLOADING_BUTTON = null;
       }
     },
     true
