@@ -1027,16 +1027,24 @@ const attachDownloadClickHandler = (button) => {
       showProgressToast("Downloading track…");
       setButtonProgress(button, "Downloading track…", 0);
 
+      let error = null;
+
       try {
         await downloadTrack(button);
-        clearButtonProgress(button);
-        hideProgressToast();
       } catch (err) {
-        logger.error(err);
-        clearButtonProgress(button);
-        showDownloadErrorFeedback(button, err.message);
-      } finally {
-        window.SCDL__DOWNLOADING_BUTTON = null;
+        error = err;
+      }
+
+      // whatever the outcome: the button gets its own look back before
+      // any error feedback reads it, and the next click goes through
+      clearButtonProgress(button);
+      window.SCDL__DOWNLOADING_BUTTON = null;
+
+      if (error) {
+        logger.error(error);
+        showDownloadErrorFeedback(button, error.message);
+      } else {
+        hideProgressToast();
       }
     },
     true
