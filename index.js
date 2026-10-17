@@ -317,16 +317,18 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
     offset < audioBuffer.length;
     offset += MP3_ENCODE_CHUNK_SAMPLES
   ) {
-    // every chunk is full except usually the last one
+    // every chunk is full except usually the last one: the views cover
+    // just this chunk's samples
     const size = Math.min(
       MP3_ENCODE_CHUNK_SAMPLES,
       audioBuffer.length - offset
     );
+    const samples = floatChunk.subarray(0, size);
+    const pcm = pcmChunks.map((chunk) => chunk.subarray(0, size));
 
     // for each channel, copy this chunk's samples, then convert them
     for (let channel = 0; channel < channelCount; channel++) {
-      const samples = floatChunk.subarray(0, size);
-      const pcm = pcmChunks[channel];
+      const channelPcm = pcm[channel];
 
       audioBuffer.copyFromChannel(samples, channel, offset);
 
@@ -335,15 +337,13 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
       for (let i = 0; i < size; i++) {
         const sample = samples[i];
 
-        pcm[i] = (sample < -1 ? -1 : sample > 1 ? 1 : sample) * 0x7fff;
+        channelPcm[i] = (sample < -1 ? -1 : sample > 1 ? 1 : sample) * 0x7fff;
       }
     }
 
     // encode the chunk. lamejs can return fewer bytes than expected, or
     // none: it holds samples back until it has whole mp3 frames
-    mp3Parts.push(
-      encoder.encodeBuffer(...pcmChunks.map((pcm) => pcm.subarray(0, size)))
-    );
+    mp3Parts.push(encoder.encodeBuffer(...pcm));
 
     onProgress((offset + size) / audioBuffer.length);
 
