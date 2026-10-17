@@ -175,22 +175,6 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
 };
 
 /**
- * Converts blob to arrayBuffer (for `resolveHlsBuffer`).
- * @param {Blob} blob
- * @returns {Promise<ArrayBuffer>}
- */
-const blobToArrayBuffer = (blob) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-
-    reader.readAsArrayBuffer(blob);
-    reader.onload = () => {
-      resolve(reader.result);
-    };
-  });
-};
-
-/**
  * Resolve track with 'hls' transcoding format.
  * @param {string} trackUrl
  * @param {ArrayBuffer} artworkBuffer
@@ -221,8 +205,7 @@ const resolveHlsBuffer = (trackUrl, artworkBuffer, metadata) => {
         const arrayBuffers = await Promise.all(
           mp3Urls.map((url) => fetch(url).then((res) => res.arrayBuffer()))
         );
-        const blob = new Blob(arrayBuffers);
-        const trackArrayBuffer = await blobToArrayBuffer(blob);
+        const trackArrayBuffer = await new Blob(arrayBuffers).arrayBuffer();
 
         await tagAndSaveTrack(trackArrayBuffer, artworkBuffer, metadata);
 
@@ -364,7 +347,7 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
   mp3Parts.push(encoder.flush());
 
   // join the parts into one mp3 file
-  return blobToArrayBuffer(new Blob(mp3Parts));
+  return new Blob(mp3Parts).arrayBuffer();
 };
 
 /**
@@ -433,7 +416,7 @@ const resolveAacHlsBuffer = async (
     })
   );
 
-  const aacBuffer = await blobToArrayBuffer(new Blob(segmentBuffers));
+  const aacBuffer = await new Blob(segmentBuffers).arrayBuffer();
 
   onProgress(`Decoding “${title}”…`);
 
