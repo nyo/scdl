@@ -646,16 +646,20 @@ const getTrackURL = (buttonElement) => {
 };
 
 /**
- * Shared "error" red: the toast's and the download button's background
- * on an error, the refused button's flash, and the notice's text, so
- * they all read as the same state.
+ * Every color the add-on paints, in one place. All styling is inline,
+ * from this script: SoundCloud's own page script throws a SecurityError
+ * on any stylesheet an extension adds.
  */
-const ERROR_COLOR = "#ff0000";
-
-/**
- * Background of the toast while a track is being converted.
- */
-const PROGRESS_BACKGROUND_COLOR = "#333";
+const COLORS = {
+  text: "#fff",
+  error: "#ff0000",
+  progressBackground: "#333",
+  progressDone: "#16a34a",
+  // the MUI download button, cloned from a transparent menu button:
+  // SoundCloud orange, at rest and on hover
+  muiIdle: "rgba(255, 85, 0, 0.6)",
+  muiHover: "rgba(255, 85, 0, 0.9)",
+};
 
 /**
  * Get the single shared toast element, creating and appending it to the
@@ -679,8 +683,8 @@ const getToastElement = () => {
   toast.style.maxWidth = "320px";
   toast.style.padding = "12px 16px";
   toast.style.borderRadius = "6px";
-  toast.style.backgroundColor = ERROR_COLOR;
-  toast.style.color = "#fff";
+  toast.style.backgroundColor = COLORS.error;
+  toast.style.color = COLORS.text;
   toast.style.fontSize = "14px";
   toast.style.fontFamily = "sans-serif";
   toast.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.4)";
@@ -691,7 +695,7 @@ const getToastElement = () => {
   noticeElement.style.display = "none";
   noticeElement.style.marginTop = "4px";
   noticeElement.style.fontSize = "12px";
-  noticeElement.style.color = ERROR_COLOR;
+  noticeElement.style.color = COLORS.error;
 
   toast.append(messageElement, noticeElement);
   toast._scdlMessageElement = messageElement;
@@ -714,7 +718,7 @@ const showErrorToast = (message) => {
   hideToastNotice();
 
   toast._scdlMessageElement.textContent = message;
-  toast.style.backgroundColor = ERROR_COLOR;
+  toast.style.backgroundColor = COLORS.error;
   toast.style.display = "block";
   toast._scdlIsProgress = false;
 
@@ -735,7 +739,7 @@ const showProgressToast = (message) => {
   clearTimeout(window.SCDL__TOAST_TIMEOUT);
 
   toast._scdlMessageElement.textContent = message;
-  toast.style.backgroundColor = PROGRESS_BACKGROUND_COLOR;
+  toast.style.backgroundColor = COLORS.progressBackground;
   toast.style.display = "block";
   toast._scdlIsProgress = true;
 };
@@ -800,15 +804,6 @@ const shortenTitle = (title) =>
   title.length > 40 ? `${title.slice(0, 39).trimEnd()}…` : title;
 
 /**
- * Colors of a download button while its track downloads: the button
- * turns dark grey, fills with green from the left as the conversion
- * runs, and its icon turns white, which reads on both. The same on the
- * classic and MUI buttons, whose own colors differ.
- */
-const BUTTON_PROGRESS_DONE_COLOR = "#16a34a";
-const BUTTON_PROGRESS_ICON_COLOR = "#fff";
-
-/**
  * Show a track's progress on its own download button: the message as
  * the button's tooltip, and, when percent (0 to 100) is given, a green
  * fill from the left over a dark grey background.
@@ -825,8 +820,8 @@ const setButtonProgress = (button, message, percent) => {
   button.title = message;
 
   if (percent !== undefined) {
-    button.style.backgroundImage = `linear-gradient(to right, ${BUTTON_PROGRESS_DONE_COLOR} ${percent}%, ${PROGRESS_BACKGROUND_COLOR} ${percent}%)`;
-    button.style.color = BUTTON_PROGRESS_ICON_COLOR;
+    button.style.backgroundImage = `linear-gradient(to right, ${COLORS.progressDone} ${percent}%, ${COLORS.progressBackground} ${percent}%)`;
+    button.style.color = COLORS.text;
   }
 };
 
@@ -872,8 +867,8 @@ const flashRefusedButton = (button) => {
   // switch to red with no transition, and make the browser apply it
   // (reading offsetWidth does), so the fade below starts from red
   button.style.transition = "none";
-  button.style.backgroundColor = ERROR_COLOR;
-  button.style.color = "#fff";
+  button.style.backgroundColor = COLORS.error;
+  button.style.color = COLORS.text;
   void button.offsetWidth;
 
   button.style.transition = `background-color ${REFUSED_CLICK_FADE_MS}ms ease-out, color ${REFUSED_CLICK_FADE_MS}ms ease-out`;
@@ -914,8 +909,8 @@ const showDownloadErrorFeedback = (button, message) => {
   }
 
   button.title = message;
-  button.style.backgroundColor = ERROR_COLOR;
-  button.style.color = "#fff";
+  button.style.backgroundColor = COLORS.error;
+  button.style.color = COLORS.text;
 
   button._scdlResetTimeout = setTimeout(() => {
     button.style.backgroundColor = button._scdlIdleState.backgroundColor;
@@ -1341,20 +1336,17 @@ const createMuiDownloadButton = (menuButton) => {
     button.removeAttribute(attribute);
   }
 
-  const idleBackground = "rgba(255, 85, 0, 0.6)";
-  const hoverBackground = "rgba(255, 85, 0, 0.9)";
-
   button.setAttribute("aria-label", "Download track");
   button.title = "Download track";
   button.classList.add("scdl-mui-download-button");
-  button.style.backgroundColor = idleBackground;
+  button.style.backgroundColor = COLORS.muiIdle;
   button.replaceChildren(createMuiDownloadIconSvg());
 
   button.addEventListener("mouseenter", () => {
-    button.style.backgroundColor = hoverBackground;
+    button.style.backgroundColor = COLORS.muiHover;
   });
   button.addEventListener("mouseleave", () => {
-    button.style.backgroundColor = idleBackground;
+    button.style.backgroundColor = COLORS.muiIdle;
   });
 
   return button;
