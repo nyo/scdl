@@ -11,17 +11,18 @@ window.SCDL__TOAST_NOTICE_TIMEOUT = null;
 window.SCDL__DOWNLOADING_BUTTON = null;
 
 /**
- * Label for the frame this code runs in: "top frame" or "iframe".
+ * Returns the label of the frame this code runs in: "top frame" or
+ * "iframe".
+ * 
  * Every frame the content script is injected into runs its own copy of
- * this script, so watchNewTracksInterval and setClientId each run once
+ * this script, so `watchNewTracksInterval` and `setClientId` each run once
  * per frame. The logs say which frame they came from.
  * @returns {string}
  */
 const getFrameLabel = () => (window.top === window ? "top frame" : "iframe");
 
 /**
- * Define custom logger object for logging
- * with a prefixed tag to differenciate add-on logs.
+ * Logger with a prefix, so the add-on's lines stand out in the console.
  */
 const SCDL_LOG_PREFIX = "[scdl]";
 const logger = {
@@ -37,9 +38,8 @@ const sanitizeFilename = (filename) => {
 };
 
 /**
- * Check every second for new loaded tracks in the page.
- * Add download button if the page url has changed, or if new tracks
- * have been loaded in the page.
+ * Adds download buttons, every second, when the page URL has changed
+ * or new tracks have loaded.
  */
 const watchNewTracksInterval = setInterval(() => {
   try {
@@ -67,15 +67,15 @@ const watchNewTracksInterval = setInterval(() => {
 }, 1000);
 
 /**
- * Stop the interval when the user navigates away from the page
+ * Stops the interval when the user navigates away from the page
  */
 window.addEventListener("beforeunload", () => {
   clearInterval(watchNewTracksInterval);
 });
 
 /**
- * Write metadatas to track buffer, then save it as mp3 file.
- * This is using ID3 version 2.3 (ID3v2.3) tags supported by browser-id3-writer.
+ * Writes the metadata into the track buffer as ID3v2.3 tags, then saves
+ * it as an mp3 file.
  * @see https://github.com/egoroof/browser-id3-writer?tab=readme-ov-file#supported-frames
  * @param {ArrayBuffer} trackBuffer
  * @param {ArrayBuffer} artworkBuffer
@@ -98,7 +98,7 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
     writer.setFrame("TIT2", songTitle);
   }
 
-  // keep only year from date
+  // the year, or a full date
   const albumReleaseYear =
     metadata.release_date || metadata.created_at?.split("-")?.[0];
 
@@ -173,8 +173,8 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
 };
 
 /**
- * Fetch an HLS playlist and its media segments, and join them into one
- * buffer, in play order.
+ * Fetches an HLS playlist and its media segments, and joins them into
+ * one buffer, in play order.
  *
  * In an HLS playlist, lines starting with "#" are tags (#EXTINF...),
  * and every other non-empty line is a media segment's URI. An
@@ -216,7 +216,7 @@ const fetchHlsMedia = async (playlistUrl, fetchUrl) => {
 };
 
 /**
- * Resolve track with an mp3 'hls' transcoding.
+ * Resolves the track with an mp3 'hls' transcoding.
  * @param {string} trackUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
@@ -228,7 +228,7 @@ const resolveHlsBuffer = async (trackUrl, artworkBuffer, metadata) => {
 };
 
 /**
- * Resolve track with 'progressive' transcoding format.
+ * Resolves the track with a 'progressive' transcoding.
  * @param {string} trackUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
@@ -260,7 +260,7 @@ const MP3_ENCODE_BITRATE_KBPS = 320;
 const MP3_ENCODE_CHUNK_SAMPLES = 1152 * 16;
 
 /**
- * Let the page handle its pending events before going on. Not a
+ * Lets the page handle its pending events before going on. Not a
  * setTimeout: timers are throttled to once a second in background tabs,
  * which would stretch the encoding to minutes if the user switches tabs.
  * A MessageChannel message is not a timer.
@@ -278,12 +278,11 @@ const yieldToPage = () =>
   });
 
 /**
- * Encode decoded audio to mp3 with lamejs, one chunk at a time.
+ * Encodes decoded audio to mp3 with lamejs, one chunk at a time.
  *
- * Samples are copied out with copyFromChannel rather than read from
- * getChannelData: the AudioBuffer belongs to the page, and reading a
- * page-owned array element by element from a content script goes
- * through Firefox's Xray wrappers on every access.
+ * Samples are copied out a chunk at a time with copyFromChannel, rather
+ * than read element by element from the page's own array through
+ * getChannelData.
  * @param {AudioBuffer} audioBuffer
  * @param {(ratio: number) => void} onProgress
  * @returns {Promise<ArrayBuffer>}
@@ -309,7 +308,7 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
   // the mp3 bytes, in the order the encoder hands them back
   const mp3Parts = [];
 
-  // walk through the track one chunk at a time
+  // one chunk at a time, from the start of the track
   for (
     let offset = 0;
     offset < audioBuffer.length;
@@ -358,9 +357,9 @@ const encodeMp3 = async (audioBuffer, onProgress) => {
 };
 
 /**
- * Resolve track with an AAC 'hls' transcoding: fetch its segments,
- * decode the joined file (fragmented MP4) with the browser's own AAC
- * decoder, then encode it to mp3.
+ * Resolves the track with an AAC 'hls' transcoding: fetches its
+ * segments, decodes the joined file (fragmented MP4) with the browser's
+ * own AAC decoder, then encodes it to mp3.
  * @param {string} playlistUrl
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
@@ -417,7 +416,7 @@ const resolveAacHlsBuffer = async (
 };
 
 /**
- * Resolve track artwork URL (or user avatar URL) to an ArrayBuffer.
+ * Resolves the track artwork URL (or user avatar URL) to an ArrayBuffer.
  * @param {string} artworkUrl
  * @returns {Promise<ArrayBuffer>}
  */
@@ -443,8 +442,8 @@ const DRM_ERROR_MESSAGE =
   "This track is now copy-protected by SoundCloud (like a Netflix show or Spotify song) and can't be downloaded :(";
 
 /**
- * True for the format of an unencrypted HLS transcoding of AAC in
- * fragmented MP4 (mime type `audio/mp4; codecs="mp4a.40.2"`).
+ * Checks whether a format is unencrypted HLS with AAC in fragmented MP4
+ * (mime type `audio/mp4; codecs="mp4a.40.2"`).
  * @param {{protocol?: string, mime_type?: string}} format
  * @returns {boolean}
  */
@@ -452,8 +451,8 @@ const isAacHlsFormat = (format) =>
   format?.protocol === "hls" && format?.mime_type?.startsWith("audio/mp4");
 
 /**
- * Bitrate in kbps read from an AAC transcoding's preset ("aac_160k"),
- * or 0 when the preset doesn't give one.
+ * Reads the bitrate in kbps from an AAC transcoding's preset
+ * ("aac_160k"), or 0 when the preset doesn't give one.
  * @param {object} transcoding
  * @returns {number}
  */
@@ -461,7 +460,7 @@ const getAacPresetBitrate = (transcoding) =>
   Number(transcoding.preset?.match(/^aac_(\d+)k$/)?.[1]) || 0;
 
 /**
- * Find a working transcoding for the track and return its data.
+ * Finds a working transcoding for the track and returns its data.
  * @param {object[]} transcodings
  * @returns {Promise<any>}
  */
@@ -541,7 +540,7 @@ const fetchStreamData = async (transcodings) => {
 };
 
 /**
- * Resolve track metadata for download.
+ * Resolves the track's metadata for download.
  * @param {string} url
  * @returns {Promise<any>}
  */
@@ -560,10 +559,10 @@ const resolveTrack = async (url) => {
 
   const resolveData = await resolveRes.json();
 
-  // Only a track carries media.transcodings. Should a download button
-  // ever land on a playlist or profile header, this check is what turns
-  // the failure into a readable message. Without it, fetchStreamData
-  // throws a TypeError and the error toast shows that to the user.
+  // Only a track has media.transcodings. If a download button lands on
+  // a playlist or profile header, this check gives a readable message.
+  // Without it, fetchStreamData throws a TypeError and the toast shows
+  // that to the user.
   if (resolveData?.kind !== "track") {
     throw new Error(
       `This isn't a track, so there's nothing to download (SoundCloud resolved it as "${
@@ -576,7 +575,8 @@ const resolveTrack = async (url) => {
 };
 
 /**
- * Checks whether the given link is valid or not
+ * Checks whether the link is a track's title link, and not its stream
+ * or comments page.
  * @param {HTMLAnchorElement} link
  * @returns {boolean}
  */
@@ -602,7 +602,7 @@ const isValidLink = (link) => {
 };
 
 /**
- * Get URL of the track linked to the download button.
+ * Gets the URL of the track linked to the download button.
  * @param {HTMLAnchorElement} buttonElement
  * @returns {string}
  */
@@ -662,7 +662,7 @@ const COLORS = {
 };
 
 /**
- * Get the single shared toast element, creating and appending it to the
+ * Gets the single shared toast element, creating and appending it to the
  * page on first use. One element is reused for every message, so a
  * second message while the first is still showing replaces it instead
  * of stacking a duplicate on screen.
@@ -708,7 +708,7 @@ const getToastElement = () => {
 };
 
 /**
- * Show the given message in the shared error toast for 5 seconds. A
+ * Shows the given message in the shared toast, in red, for 5 seconds. A
  * repeat call restarts that timer rather than stacking a second one.
  * @param {string} message
  */
@@ -729,7 +729,7 @@ const showErrorToast = (message) => {
 };
 
 /**
- * Show the given progress message in the shared toast until
+ * Shows the given progress message in the shared toast until
  * hideProgressToast is called or an error replaces it.
  * @param {string} message
  */
@@ -745,7 +745,7 @@ const showProgressToast = (message) => {
 };
 
 /**
- * Hide the shared toast if it shows a progress message. An error shown
+ * Hides the shared toast if it shows a progress message. An error shown
  * since stays up for its own 5 seconds.
  */
 const hideProgressToast = () => {
@@ -759,7 +759,7 @@ const hideProgressToast = () => {
 };
 
 /**
- * Show a notice under the progress message for 3 seconds. The progress
+ * Shows a notice under the progress message for 3 seconds. The progress
  * message is rewritten several times a second, so a notice in its place
  * would be overwritten at once.
  *
@@ -782,7 +782,7 @@ const showToastNotice = (message) => {
 };
 
 /**
- * Hide the notice under the toast's message, if one is showing.
+ * Hides the notice under the toast's message, if one is showing.
  */
 const hideToastNotice = () => {
   const notice = window.SCDL__TOAST_ELEMENT?._scdlNoticeElement;
@@ -795,7 +795,7 @@ const hideToastNotice = () => {
 };
 
 /**
- * Shorten a track title for the progress messages: titles on
+ * Shortens a track title for the progress messages: titles on
  * SoundCloud run long, and the toast is 320 px wide.
  * @param {string} title
  * @returns {string}
@@ -804,7 +804,7 @@ const shortenTitle = (title) =>
   title.length > 40 ? `${title.slice(0, 39).trimEnd()}…` : title;
 
 /**
- * Show a track's progress on its own download button: the message as
+ * Shows a track's progress on its own download button: the message as
  * the button's tooltip, and, when percent (0 to 100) is given, a green
  * fill from the left over a dark grey background.
  * @param {HTMLElement} button
@@ -826,7 +826,7 @@ const setButtonProgress = (button, message, percent) => {
 };
 
 /**
- * Remove the progress from a download button: the fill, and the icon
+ * Removes the progress from a download button: the fill, and the icon
  * color and tooltip, which get back what they were before the download.
  * @param {HTMLElement} button
  */
@@ -847,7 +847,7 @@ const clearButtonProgress = (button) => {
 const REFUSED_CLICK_FADE_MS = 2000;
 
 /**
- * Turn a download button red, then fade it back to its own colors: its
+ * Turns a download button red, then fades it back to its own colors: its
  * click was refused because another track is downloading. A new click
  * during the fade starts it again.
  * @param {HTMLElement} button
@@ -882,10 +882,10 @@ const flashRefusedButton = (button) => {
 };
 
 /**
- * Briefly turn the download button red and surface the error message via
- * its title attribute and a screen-corner toast (so it's visible without
- * hovering). Clears any pending reset so rapid clicks don't cause the
- * button to revert to its normal state mid-error.
+ * Briefly turns the download button red and shows the error message in
+ * its title attribute and in the toast (so it's visible without
+ * hovering). Clears any pending reset, so rapid clicks don't put the
+ * button back to normal mid-error.
  *
  * The button's backgroundColor, color and title are captured before the
  * first error and put back afterwards, once, not again on repeat clicks
@@ -921,7 +921,7 @@ const showDownloadErrorFeedback = (button, message) => {
 };
 
 /**
- * Add the session's client_id to a stream URL, as SoundCloud's mp3
+ * Adds the session's client_id to a stream URL, as SoundCloud's mp3
  * endpoints require. Not for the AAC playlist URL: it is signed, and
  * the CDN answers 403 once a query parameter is added to it.
  * @param {string} url
@@ -936,7 +936,8 @@ const withClientId = (url) => {
 };
 
 /**
- * Get track URL, resolve its metadata, tag and save as .mp3 file.
+ * Gets the track URL, resolves its metadata, tags it and saves it as an
+ * mp3 file.
  * @param {HTMLElement} buttonElement
  */
 const downloadTrack = async (buttonElement) => {
@@ -981,21 +982,19 @@ const downloadTrack = async (buttonElement) => {
 };
 
 /**
- * Wire up a download button's click handler: run downloadTrack, and on
- * failure log the error and flash the button red via showDownloadErrorFeedback.
- * One download runs at a time. While one is running, a click on another
- * track's button is ignored: the button flashes red and a notice under
- * the progress says so. A click on the button of the track downloading
- * does nothing.
- * Two downloads at once would write their progress over each other in
- * the one toast. And Firefox cancels a download when the site already
- * started one without a recent click (IsDownloadSpam in Firefox's
- * nsExternalHelperAppService.cpp), which is the case here: the file is
- * saved long after the click, once converted.
+ * Wires up a download button's click handler: runs downloadTrack, and
+ * on failure logs the error and flashes the button red. Shared by the classic
+ * and MUI insertion paths.
  *
- * The lock is per frame, as every frame runs its own copy of this
- * script.
- * Shared by both the classic and MUI insertion paths.
+ * One download runs at a time, per frame (every frame runs its own copy
+ * of this script). While one runs, a click on another track's button
+ * flashes it red and puts a notice under the progress; a click on the
+ * downloading track's button does nothing. Two downloads at once would
+ * write their progress over each other in the one toast, and Firefox
+ * cancels a download when the site already started one without a
+ * recent click (IsDownloadSpam in nsExternalHelperAppService.cpp),
+ * which is our case: the file is saved long after the click, once
+ * converted.
  * @param {HTMLElement} button
  */
 const attachDownloadClickHandler = (button) => {
@@ -1046,12 +1045,11 @@ const attachDownloadClickHandler = (button) => {
 };
 
 /**
- * Checks whether the given button group should be
- * appended a child download button.
+ * Checks whether the button group should get a download button.
  * Skip duplicates, and groups that are not directly linked to a track.
  *
- * /!\ This is dirty, but black-listing groups seems better than
- * white-listing because of changes that can be made to the website.
+ * /!\ Dirty: it blacklists groups rather than whitelisting them, since
+ * SoundCloud's markup changes often.
  *
  * @param {HTMLElement} buttonGroup
  * @returns {boolean}
@@ -1110,7 +1108,7 @@ const isValidButtonGroup = (buttonGroup) => {
 };
 
 /**
- * Build the download SVG icon used by the classic-layout download button.
+ * Builds the download SVG icon used by the classic-layout download button.
  * @returns {SVGSVGElement}
  */
 const createDownloadIconSvg = () => {
@@ -1140,9 +1138,8 @@ const createDownloadIconSvg = () => {
 };
 
 /**
- * Insert 'Download' button(s) in the DOM wherever there is a group
- * of buttons that appear to be linked to a track.
- * The size of each button is determined from the size of the buttons of the group.
+ * Inserts a 'Download' button in every group of buttons that is tied to
+ * a track. Each button takes the size of its group's buttons.
  */
 const insertDownloadButtons = () => {
   const downloadButton = document.createElement("button");
@@ -1201,8 +1198,8 @@ const insertDownloadButtons = () => {
 /**
  * Icon path data ("d" attribute) for SoundCloud's own "Download track"
  * button, shown on tracks whose artist enabled downloads. We match on
- * it to spot that button, so we don't add a second, redundant one next
- * to it. We also reuse it to draw our own icon.
+ * it to spot that button, so we don't add a second one next to it.
+ * We also reuse it to draw our own icon.
  */
 const MUI_NATIVE_DOWNLOAD_ICON_PATH =
   "M12.75 3v15.44l5.5-5.5L19.31 14 12 21.31 4.69 14l1.06-1.06 5.5 5.5V3h1.5Z";
@@ -1244,8 +1241,8 @@ const MUI_TRACK_ACTIONS_SELECTOR = '[aria-haspopup="true"][variant="outlined"]';
  *
  * Skips containers we've already handled, and containers that hold
  * SoundCloud's own native "Download track" button - some tracks
- * have downloads natively enabled by their artist, and we don't want to
- * add a second, redundant button next to theirs.
+ * have downloads enabled by their artist, and we don't want to add a
+ * second button next to theirs.
  * @param {Element} container
  * @returns {boolean}
  */
@@ -1256,11 +1253,11 @@ const isValidMuiActionsContainer = (container) => {
 };
 
 /**
- * Find every valid action-buttons container for the MUI-based track
+ * Finds every valid action-buttons container for the MUI-based track
  * player currently in the page. There may be more than one: SoundCloud
  * renders a narrow-viewport and a wide-viewport copy of the same track
- * header simultaneously (toggled via CSS breakpoints), only one of
- * which is visible at a time.
+ * header at once (toggled via CSS breakpoints), only one of which is
+ * visible at a time.
  * @returns {Element[]}
  */
 const getMuiActionsContainers = () => {
@@ -1272,12 +1269,12 @@ const getMuiActionsContainers = () => {
 };
 
 /**
- * Build the download SVG icon used by the MUI-based track player's
+ * Builds the download SVG icon used by the MUI-based track player's
  * button. This is SoundCloud's own icon, copied from its native
  * "Download track" button (shown on tracks where the artist has enabled
- * downloads) rather than the classic layout's icon, so ours renders
- * pixel-consistent with its siblings (Share, Repost, etc. all use the
- * same 24x24 viewBox convention).
+ * downloads) rather than the classic layout's icon, so ours matches its
+ * siblings pixel for pixel (Share, Repost and the others use the same
+ * 24x24 viewBox).
  * @returns {SVGSVGElement}
  */
 const createMuiDownloadIconSvg = () => {
@@ -1305,7 +1302,7 @@ const createMuiDownloadIconSvg = () => {
 };
 
 /**
- * Build a 'Download' icon-button by cloning the row's "More menu"
+ * Builds a 'Download' icon-button by cloning the row's "More menu"
  * button, so it inherits that button's per-build styling without us
  * hardcoding any of it. The menu button is the one the row is found
  * through, so it is always there; the row's other buttons are not.
@@ -1353,7 +1350,7 @@ const createMuiDownloadButton = (menuButton) => {
 };
 
 /**
- * Insert 'Download' button(s) into the MUI-based track player's
+ * Inserts 'Download' button(s) into the MUI-based track player's
  * action-buttons row(s), mirroring insertDownloadButtons() for the
  * classic layout. The two paths share no selectors and no DOM nodes, so
  * neither can disturb the other.
@@ -1374,25 +1371,23 @@ const insertMuiDownloadButtons = () => {
 
     attachDownloadClickHandler(downloadButton);
 
-    // insert before "More menu" so it stays last, matching the
-    // overflow-menu-trails-everything-else convention of its siblings
+    // insert before "More menu", which stays last, as overflow menus do
     container.insertBefore(downloadButton, moreMenuButton);
     window.SCDL__DOM_ELEMENTS.push(container);
   }
 };
 
 /**
- * True if this frame is embedded in a page that isn't itself on
- * soundcloud.com - e.g. a blog post embedding the classic
+ * Checks whether this frame is embedded in a page that isn't itself on
+ * soundcloud.com, such as a blog post embedding the classic
  * `w.soundcloud.com` widget player.
  *
- * We only need `all_frames: true` (manifest.json) to reach the
+ * `all_frames: true` (manifest.json) is only needed to reach the
  * MUI-based track page's own crossfade iframe. But content_scripts
- * `matches` is checked per-frame against that frame's own URL, and
- * `*://*.soundcloud.com/*` also matches `w.soundcloud.com` - so the same
- * setting that lets us reach the crossfade iframe also injects us into
- * any other soundcloud.com-hosted iframe anywhere, including that
- * classic widget embedded on someone else's page, which we have no
+ * `matches` is checked per frame against that frame's own URL, and
+ * `*://*.soundcloud.com/*` also matches `w.soundcloud.com`. So the same
+ * setting injects us into any soundcloud.com-hosted iframe anywhere,
+ * including that widget on someone else's page, which we have no
  * reason to touch.
  * @returns {boolean}
  */
@@ -1407,7 +1402,7 @@ const isThirdPartyEmbed = () => {
 };
 
 /**
- * Scan a document's <script> tags for a SoundCloud asset bundle
+ * Scans a document's <script> tags for a SoundCloud asset bundle
  * (sndcdn.com/assets/<id>), fetching each candidate until one's
  * contents reveal the session's clientId.
  * @param {Document} doc
@@ -1420,8 +1415,7 @@ const findClientIdInDocument = async (doc) => {
     return src.match(/sndcdn.com\/assets\/[0-9][0-9]*/g) ? [...acc, src] : acc;
   }, []);
 
-  // iterate through all the scripts and
-  // fetch each one until finding the clientId
+  // fetch the scripts one by one until one holds the clientId
   const regex = /,client_id:"([a-zA-Z0-9]{32})"/;
   for (const src of scriptSources) {
     try {
@@ -1442,13 +1436,12 @@ const findClientIdInDocument = async (doc) => {
 };
 
 /**
- * Try to find the SoundCloud clientId for the current user session, and
- * set it to `window.SCDL__CLIENT_ID`.
+ * Tries to find the SoundCloud clientId for the current user session,
+ * and sets it to `window.SCDL__CLIENT_ID`.
  *
  * On the MUI-based track player, which renders inside a same-origin
  * iframe, this frame's own document never references a sndcdn.com/assets
- * bundle (the new app's scripts are served from a different host
- * entirely). So a sub-frame goes straight to fetching and scanning the
+ * bundle (the new app's scripts come from another host). So a sub-frame goes straight to fetching and scanning the
  * top-level page's document instead, which is still the classic app shell
  * and does reference one; the top frame scans its own document, same as
  * always.
@@ -1476,7 +1469,7 @@ const setClientId = async () => {
 
       clientId = await findClientIdInDocument(topDocument);
     } catch (err) {
-      // network or parse failure - fall through
+      // network or parse failure: fall through
     }
   }
 

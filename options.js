@@ -65,7 +65,7 @@ const loadSettings = () => {
       updatePreview();
     })
     .catch((error) => {
-      // Fallback to defaults and show error
+      // back to the defaults, and tell the user
       formatInput.value = SCDL__FORMAT_DEFAULTS.format;
       lowercaseCheckbox.checked = SCDL__FORMAT_DEFAULTS.lowercase;
       updatePreview();
