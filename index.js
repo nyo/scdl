@@ -512,11 +512,7 @@ const fetchStreamData = async (transcodings) => {
       `Trying with '${transcoding.format?.protocol}' transcoding ('${transcoding.format?.mime_type}' MIME type)...`
     );
 
-    const streamUrl = new URL(transcoding.url);
-
-    streamUrl.searchParams.set("client_id", window.SCDL__CLIENT_ID);
-
-    const streamRes = await fetch(streamUrl.toString());
+    const streamRes = await fetch(withClientId(transcoding.url));
 
     if (streamRes.status === 200) {
       const streamData = await streamRes.json();
@@ -982,9 +978,10 @@ const clearDownloadErrorFeedback = (button) => {
 };
 
 /**
- * Adds the session's client_id to a stream URL, as SoundCloud's mp3
- * endpoints require. Not for the AAC playlist URL: it is signed, and
- * the CDN answers 403 once a query parameter is added to it.
+ * Adds the session's `client_id` to a SoundCloud API URL, or to an mp3
+ * stream URL as the add-on did before the AAC change. Not for the AAC
+ * playlist URL: it is signed, and the CDN answers 403 once a query
+ * parameter is added to it.
  * @param {string} url
  * @returns {string}
  */
