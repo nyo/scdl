@@ -670,6 +670,7 @@ const getTrackURL = (buttonElement) => {
 const COLORS = {
   text: "#fff",
   error: "#ff0000",
+  notice: "#ff6b6b",
   progressBackground: "#333",
   progressDone: "#16a34a",
   // the MUI download button, cloned from a transparent menu button:
@@ -712,7 +713,7 @@ const getToastElement = () => {
   noticeElement.style.display = "none";
   noticeElement.style.marginTop = "4px";
   noticeElement.style.fontSize = "12px";
-  noticeElement.style.color = COLORS.error;
+  noticeElement.style.color = COLORS.notice;
 
   toast.append(messageElement, noticeElement);
   toast._scdlMessageElement = messageElement;
