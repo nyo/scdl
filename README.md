@@ -45,6 +45,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 | `COMM` | the track description            |
 | `WOAS` | the track's SoundCloud url       |
 | `APIC` | artwork at 500x500, when the track has one |
+| `TXXX` | "Encoder": lamejs 1.2.1, from SoundCloud AAC, when the add-on converted the track |
 
 </details>
 

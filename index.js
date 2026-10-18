@@ -85,8 +85,14 @@ window.addEventListener("beforeunload", () => {
  * @param {ArrayBuffer} trackBuffer
  * @param {ArrayBuffer} artworkBuffer
  * @param {object} metadata
+ * @param {string} [encoder] set when the add-on encoded the mp3 itself
  */
-const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
+const tagAndSaveTrack = async (
+  trackBuffer,
+  artworkBuffer,
+  metadata,
+  encoder
+) => {
   const writer = new ID3Writer(trackBuffer);
 
   const songArtist =
@@ -144,6 +150,10 @@ const tagAndSaveTrack = async (trackBuffer, artworkBuffer, metadata) => {
       description: "",
       text: songDescription,
     });
+  }
+
+  if (encoder) {
+    writer.setFrame("TXXX", { description: "Encoder", value: encoder });
   }
 
   writer.addTag();
@@ -256,6 +266,12 @@ const resolveProgressiveBuffer = async (trackUrl, artworkBuffer, metadata) => {
  * keeps the loss from encoding a second time as low as possible.
  */
 const MP3_ENCODE_BITRATE_KBPS = 320;
+
+/**
+ * What the "Encoder" tag of a converted track says: the encoder, and
+ * where the audio came from.
+ */
+const MP3_ENCODER_TAG = "lamejs 1.2.1, from SoundCloud AAC";
 
 /**
  * Samples per channel handed to the mp3 encoder per call, 16 mp3
@@ -417,7 +433,7 @@ const resolveAacHlsBuffer = async (
     }
   });
 
-  await tagAndSaveTrack(mp3Buffer, artworkBuffer, metadata);
+  await tagAndSaveTrack(mp3Buffer, artworkBuffer, metadata, MP3_ENCODER_TAG);
 };
 
 /**
