@@ -846,10 +846,28 @@ const clearButtonProgress = (button) => {
 };
 
 /**
- * How long a download button whose click was refused takes to fade
- * from red back to its own colors.
+ * How long a download button takes to fade from red back to its own
+ * colors, after a refused click or at the end of its error look.
  */
-const REFUSED_CLICK_FADE_MS = 2000;
+const BUTTON_FADE_MS = 2000;
+
+/**
+ * How long a download button stays red after a failed download, before
+ * its fade.
+ */
+const BUTTON_ERROR_MS = 3000;
+
+/**
+ * Fades a download button to the given colors over BUTTON_FADE_MS. The
+ * transition stays on the button until the caller removes it.
+ * @param {HTMLElement} button
+ * @param {{backgroundColor: string, color: string}} colors
+ */
+const fadeButtonTo = (button, colors) => {
+  button.style.transition = `background-color ${BUTTON_FADE_MS}ms ease-out, color ${BUTTON_FADE_MS}ms ease-out`;
+  button.style.backgroundColor = colors.backgroundColor;
+  button.style.color = colors.color;
+};
 
 /**
  * Turns a download button red, then fades it back to its own colors: its
@@ -876,13 +894,11 @@ const flashRefusedButton = (button) => {
   button.style.color = COLORS.text;
   void button.offsetWidth;
 
-  button.style.transition = `background-color ${REFUSED_CLICK_FADE_MS}ms ease-out, color ${REFUSED_CLICK_FADE_MS}ms ease-out`;
-  button.style.backgroundColor = idleState.backgroundColor;
-  button.style.color = idleState.color;
+  fadeButtonTo(button, idleState);
 
   button._scdlFlashTimeout = setTimeout(
     () => clearRefusedFlash(button),
-    REFUSED_CLICK_FADE_MS
+    BUTTON_FADE_MS
   );
 };
 
@@ -904,10 +920,11 @@ const clearRefusedFlash = (button) => {
 };
 
 /**
- * Briefly turns the download button red and shows the error message in
- * its title attribute and in the toast (so it's visible without
- * hovering). Clears any pending reset, so rapid clicks don't put the
- * button back to normal mid-error.
+ * Turns the download button red for 3 seconds, then fades it back to
+ * its own colors, and shows the error message in its title attribute
+ * and in the toast (so it's visible without hovering). Clears any
+ * pending reset, so rapid clicks don't put the button back to normal
+ * mid-error.
  *
  * The button's backgroundColor, color and title are captured before the
  * first error and put back afterwards, once, not again on repeat clicks
@@ -931,18 +948,26 @@ const showDownloadErrorFeedback = (button, message) => {
   }
 
   button.title = message;
+  button.style.transition = "none";
   button.style.backgroundColor = COLORS.error;
   button.style.color = COLORS.text;
 
-  button._scdlResetTimeout = setTimeout(
-    () => clearDownloadErrorFeedback(button),
-    5000
-  );
+  // red first, then the fade; the reset timeout covers both steps, so
+  // one clearTimeout cancels whichever is pending
+  button._scdlResetTimeout = setTimeout(() => {
+    fadeButtonTo(button, button._scdlIdleState);
+    button.title = button._scdlIdleState.title;
+    button._scdlResetTimeout = setTimeout(
+      () => clearDownloadErrorFeedback(button),
+      BUTTON_FADE_MS
+    );
+  }, BUTTON_ERROR_MS);
 };
 
 /**
- * Ends a download button's error look at once: the colors and title
- * saved before the error come back, and the pending reset is dropped.
+ * Ends a download button's error look at once, fade included: the
+ * colors and title saved before the error come back, and the pending
+ * reset is dropped.
  * @param {HTMLElement} button
  */
 const clearDownloadErrorFeedback = (button) => {
@@ -950,6 +975,7 @@ const clearDownloadErrorFeedback = (button) => {
 
   clearTimeout(button._scdlResetTimeout);
   button._scdlResetTimeout = null;
+  button.style.transition = "";
   button.style.backgroundColor = button._scdlIdleState.backgroundColor;
   button.style.color = button._scdlIdleState.color;
   button.title = button._scdlIdleState.title;
