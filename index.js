@@ -680,6 +680,12 @@ const COLORS = {
 };
 
 /**
+ * How long an error stays on screen: the red toast, and the red
+ * download button before its fade.
+ */
+const ERROR_FEEDBACK_MS = 3000;
+
+/**
  * Gets the single shared toast element, creating and appending it to the
  * page on first use. One element is reused for every message, so a
  * second message while the first is still showing replaces it instead
@@ -726,7 +732,7 @@ const getToastElement = () => {
 };
 
 /**
- * Shows the given message in the shared toast, in red, for 5 seconds. A
+ * Shows the given message in the shared toast, in red, for 3 seconds. A
  * repeat call restarts that timer rather than stacking a second one.
  * @param {string} message
  */
@@ -743,7 +749,7 @@ const showErrorToast = (message) => {
   clearTimeout(window.SCDL__TOAST_TIMEOUT);
   window.SCDL__TOAST_TIMEOUT = setTimeout(() => {
     toast.style.display = "none";
-  }, 5000);
+  }, ERROR_FEEDBACK_MS);
 };
 
 /**
@@ -764,7 +770,7 @@ const showProgressToast = (message) => {
 
 /**
  * Hides the shared toast if it shows a progress message. An error shown
- * since stays up for its own 5 seconds.
+ * since stays up for its own 3 seconds.
  */
 const hideProgressToast = () => {
   const toast = window.SCDL__TOAST_ELEMENT;
@@ -863,12 +869,6 @@ const clearButtonProgress = (button) => {
  * colors, after a refused click or at the end of its error look.
  */
 const BUTTON_FADE_MS = 2000;
-
-/**
- * How long a download button stays red after a failed download, before
- * its fade.
- */
-const BUTTON_ERROR_MS = 3000;
 
 /**
  * Fades a download button to the given colors over BUTTON_FADE_MS. The
@@ -974,7 +974,7 @@ const showDownloadErrorFeedback = (button, message) => {
       () => clearDownloadErrorFeedback(button),
       BUTTON_FADE_MS
     );
-  }, BUTTON_ERROR_MS);
+  }, ERROR_FEEDBACK_MS);
 };
 
 /**
