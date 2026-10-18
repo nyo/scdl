@@ -7,7 +7,7 @@
 
 Firefox add-on that adds a download button under SoundCloud tracks.
 
-No account, no sign-up, nothing sent anywhere.
+Nothing to sign up for, nothing sent to a third party. Works even logged out of SoundCloud.
 
 ![download button on track page preview image](screenshots/screenshot-0.png)
 
@@ -27,12 +27,10 @@ https://addons.mozilla.org/firefox/addon/scdl
 
 ## Features
 
-- ✅ Download any SoundCloud track as a tagged mp3, artwork included
-- ✅ Works without an account, a Go+ subscription, or even being logged in
-- ✅ Works on private tracks shared through a secret link
-- ✅ Works whatever language your SoundCloud is set to
-- ✅ Customizable file name format (see Preferences tab in `about:addons`)
-- ✅ Supports SoundCloud's mp3 streams (`progressive` and `hls`) and its AAC stream, which it converts to mp3
+- ✅ Tagged mp3, artwork included
+- ✅ A button on every track: track page, playlists, likes, search results
+- ✅ Works on private tracks opened through their secret link
+- ✅ Custom file name format (Preferences tab in `about:addons`)
 
 <details>
 <summary><b>ID3v2.3 frames</b> (metadata/tags)</summary>
@@ -71,7 +69,7 @@ Measured in Firefox on a MacBook Pro M5 Pro:
 
 ## Known limits
 
-- One track at a time. No playlists or albums.
+- One track at a time: no bulk download of a playlist or album.
 - Since May 2026, SoundCloud locks some tracks behind DRM: no extension can download those, and the add-on says so instead of saving a broken file.
 - Since October 2026, SoundCloud no longer serves mp3 for most tracks and streams AAC at 160 kbps instead. The add-on encodes it to mp3 at 320 kbps to lose as little as possible in the second encoding.
 
