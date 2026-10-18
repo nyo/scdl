@@ -1084,24 +1084,24 @@ const attachDownloadClickHandler = (button) => {
 
       window.SCDL__DOWNLOADING_BUTTON = button;
 
-      // shown at once, before the SoundCloud API calls, so the click
-      // gets an answer and a second click has a line to put its notice
-      // under
-      showProgressToast("Downloading track…");
-      setButtonProgress(button, "Downloading track…", 0);
-
       let error = null;
 
       try {
+        // shown at once, before the SoundCloud API calls, so the click
+        // gets an answer and a second click has a line to put its notice
+        // under
+        showProgressToast("Downloading track…");
+        setButtonProgress(button, "Downloading track…", 0);
+
         await downloadTrack(button);
       } catch (err) {
         error = err;
       }
 
-      // whatever the outcome: the button gets its own look back before
-      // any error feedback reads it, and the next click goes through
-      clearButtonProgress(button);
+      // whatever the outcome: the next click goes through, and the
+      // button gets its own look back before any error feedback reads it
       window.SCDL__DOWNLOADING_BUTTON = null;
+      clearButtonProgress(button);
 
       if (error) {
         logger.error(
