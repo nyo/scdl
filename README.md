@@ -52,7 +52,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 ## How it works
 
 The file is built in your browser, straight from SoundCloud. Nothing goes through any other server.
-The add-on only asks for access to `soundcloud.com` and for storage to keep your filename format.
+The add-on only asks for access to `soundcloud.com` and `sndcdn.com` (SoundCloud's CDN), and for storage to keep your filename format.
 
 No background process, ~85 KB.
 
