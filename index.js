@@ -255,7 +255,7 @@ const MP3_ENCODE_BITRATE_KBPS = 320;
 /**
  * Samples per channel handed to the mp3 encoder per call, 16 mp3
  * frames of 1152 samples. The page runs between calls, so this sets how
- * long it stays blocked: about 30 ms per call.
+ * long it stays blocked: about 10 ms per call.
  */
 const MP3_ENCODE_CHUNK_SAMPLES = 1152 * 16;
 
