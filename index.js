@@ -35,6 +35,13 @@ const logger = {
  */
 const ISSUES_URL = "https://github.com/nyo/scdl/issues";
 
+/**
+ * Removes the characters `< > : " / \ | ?` and `*`, and the control
+ * characters, from a file name. Each run of white space becomes one space,
+ * and the ends are trimmed.
+ * @param {string} filename
+ * @returns {string}
+ */
 const sanitizeFilename = (filename) => {
   return filename
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
