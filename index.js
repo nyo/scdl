@@ -880,10 +880,27 @@ const flashRefusedButton = (button) => {
   button.style.backgroundColor = idleState.backgroundColor;
   button.style.color = idleState.color;
 
-  button._scdlFlashTimeout = setTimeout(() => {
-    button.style.transition = "";
-    button._scdlFlashIdleState = undefined;
-  }, REFUSED_CLICK_FADE_MS);
+  button._scdlFlashTimeout = setTimeout(
+    () => clearRefusedFlash(button),
+    REFUSED_CLICK_FADE_MS
+  );
+};
+
+/**
+ * Ends a refused-click fade at once: the button gets its own colors
+ * back with no transition, as if the fade had run out.
+ * @param {HTMLElement} button
+ */
+const clearRefusedFlash = (button) => {
+  const idleState = button._scdlFlashIdleState;
+
+  if (idleState === undefined) return;
+
+  clearTimeout(button._scdlFlashTimeout);
+  button.style.transition = "";
+  button.style.backgroundColor = idleState.backgroundColor;
+  button.style.color = idleState.color;
+  button._scdlFlashIdleState = undefined;
 };
 
 /**
@@ -917,12 +934,25 @@ const showDownloadErrorFeedback = (button, message) => {
   button.style.backgroundColor = COLORS.error;
   button.style.color = COLORS.text;
 
-  button._scdlResetTimeout = setTimeout(() => {
-    button.style.backgroundColor = button._scdlIdleState.backgroundColor;
-    button.style.color = button._scdlIdleState.color;
-    button.title = button._scdlIdleState.title;
-    button._scdlResetTimeout = null;
-  }, 5000);
+  button._scdlResetTimeout = setTimeout(
+    () => clearDownloadErrorFeedback(button),
+    5000
+  );
+};
+
+/**
+ * Ends a download button's error look at once: the colors and title
+ * saved before the error come back, and the pending reset is dropped.
+ * @param {HTMLElement} button
+ */
+const clearDownloadErrorFeedback = (button) => {
+  if (!button._scdlResetTimeout) return;
+
+  clearTimeout(button._scdlResetTimeout);
+  button._scdlResetTimeout = null;
+  button.style.backgroundColor = button._scdlIdleState.backgroundColor;
+  button.style.color = button._scdlIdleState.color;
+  button.title = button._scdlIdleState.title;
 };
 
 /**
@@ -1020,6 +1050,11 @@ const attachDownloadClickHandler = (button) => {
 
         return;
       }
+
+      // a download that starts while the button still shows an error or
+      // a refused-click fade would take that look for its idle one
+      clearRefusedFlash(button);
+      clearDownloadErrorFeedback(button);
 
       window.SCDL__DOWNLOADING_BUTTON = button;
 
