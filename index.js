@@ -1000,8 +1000,9 @@ const withClientId = (url) => {
  * Gets the track URL, resolves its metadata, tags it and saves it as an
  * mp3 file.
  * @param {HTMLElement} buttonElement
+ * @param {(message: string, percent?: number) => void} onProgress
  */
-const downloadTrack = async (buttonElement) => {
+const downloadTrack = async (buttonElement, onProgress) => {
   const trackURL = getTrackURL(buttonElement);
   const resolveData = await resolveTrack(trackURL);
   const streamData = await fetchStreamData(resolveData?.media?.transcodings);
@@ -1014,11 +1015,6 @@ const downloadTrack = async (buttonElement) => {
   } catch (err) {
     logger.error(err);
   }
-
-  const onProgress = (message, percent) => {
-    showProgressToast(message);
-    setButtonProgress(buttonElement, message, percent);
-  };
 
   // AAC first: it is HLS too, and its signed playlist URL takes no
   // client_id, unlike the two mp3 endpoints
@@ -1047,7 +1043,7 @@ const downloadTrack = async (buttonElement) => {
 };
 
 /**
- * Wires up a download button's click handler: runs downloadTrack, and
+ * Wires up a download button's click handler: runs `downloadTrack`, and
  * on failure logs the error and flashes the button red. Shared by the classic
  * and MUI insertion paths.
  *
@@ -1084,16 +1080,21 @@ const attachDownloadClickHandler = (button) => {
 
       window.SCDL__DOWNLOADING_BUTTON = button;
 
+      // every progress message goes to the toast and to the button
+      const onProgress = (message, percent) => {
+        showProgressToast(message);
+        setButtonProgress(button, message, percent);
+      };
+
       let error = null;
 
       try {
         // shown at once, before the SoundCloud API calls, so the click
         // gets an answer and a second click has a line to put its notice
         // under
-        showProgressToast("Downloading track…");
-        setButtonProgress(button, "Downloading track…", 0);
+        onProgress("Downloading track…", 0);
 
-        await downloadTrack(button);
+        await downloadTrack(button, onProgress);
       } catch (err) {
         error = err;
       }
