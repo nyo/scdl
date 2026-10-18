@@ -35,7 +35,7 @@
         "index.js",
         "libs/browser-id3-writer.js",
         "libs/FileSaver.min.js",
-        "libs/lame.min.js"
+        "libs/lame-wasm.js"
       ],
       "run_at": "document_idle"
     }
