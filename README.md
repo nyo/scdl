@@ -92,6 +92,6 @@ bash build.sh # creates a `scdl-{version}.zip` file
 
 ### External libraries
 
-- [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) for mp3s tagging
-- [FileSaver.js](https://github.com/eligrey/FileSaver.js) for saving files client-side
-- [lamejs](https://github.com/zhuker/lamejs) 1.2.1 (LGPL-3.0), a JavaScript rewrite of [LAME](https://lame.sourceforge.io), for encoding mp3s.
+- [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) 4.4.0 (MIT) for mp3s tagging
+- [FileSaver.js](https://github.com/eligrey/FileSaver.js) 2.0.4 (MIT) for saving files client-side
+- [lamejs](https://github.com/zhuker/lamejs) 1.2.1 (LGPL-3.0), a JavaScript rewrite of [LAME](https://lame.sourceforge.io), for encoding mp3s
