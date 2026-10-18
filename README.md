@@ -52,9 +52,10 @@ https://addons.mozilla.org/firefox/addon/scdl
 
 ## How it works
 
-The file is built in your browser, straight from SoundCloud. Nothing goes through a server of mine, and there's no third-party site in the way.
-
+The file is built in your browser, straight from SoundCloud. Nothing goes through any other server.
 The add-on only asks for access to `soundcloud.com` and for storage to keep your filename format.
+
+No background process, ~85 KB.
 
 SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [lamejs](https://github.com/zhuker/lamejs); a box in the bottom right corner shows the progress.
 
@@ -68,15 +69,11 @@ Measured in Firefox on a MacBook Pro M5 Pro:
 | 30 min       | 48 s |
 | 60 min       | 90 s |
 
-No background process, ~85 KB.
-
-## Limits
+## Known limits
 
 - One track at a time. No playlists or albums.
-- SoundCloud's AAC stream is 160 kbps. The add-on encodes it to mp3 at 320 kbps to lose as little as possible in the second encoding.
-- SoundCloud has started locking some tracks behind DRM. Those can't be
-  downloaded by this or any other extension. You get a clear message
-  rather than a broken file.
+- Since May 2026, SoundCloud locks some tracks behind DRM: no extension can download those, and the add-on says so instead of saving a broken file.
+- Since October 2026, SoundCloud no longer serves mp3 for most tracks and streams AAC at 160 kbps instead. The add-on encodes it to mp3 at 320 kbps to lose as little as possible in the second encoding.
 
 If you encounter any issues, bugs, or have suggestions, please report them on the [GitHub Issues](https://github.com/nyo/scdl/issues) page!
 
