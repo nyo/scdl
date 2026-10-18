@@ -20,5 +20,10 @@ jobs:
           node --check shared.js
           node --check options.js
 
+      - name: Rebuild the mp3 encoder and check it matches libs/lame-wasm.js
+        run: |
+          bash wasm/build.sh
+          git diff --exit-code libs/lame-wasm.js
+
       - name: Build the add-on
         run: bash build.sh
