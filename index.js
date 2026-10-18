@@ -1528,10 +1528,10 @@ const findClientIdInDocument = async (doc) => {
  *
  * On the MUI-based track player, which renders inside a same-origin
  * iframe, this frame's own document never references a sndcdn.com/assets
- * bundle (the new app's scripts come from another host). So a sub-frame goes straight to fetching and scanning the
- * top-level page's document instead, which is still the classic app shell
- * and does reference one; the top frame scans its own document, same as
- * always.
+ * bundle (the new app's scripts come from another host). So a sub-frame
+ * goes straight to fetching and scanning the top-level page's document
+ * instead, which is still the classic app shell and does reference one;
+ * the top frame scans its own document, same as always.
  *
  * Does nothing on a third-party embed. isThirdPartyEmbed() is checked
  * here as well as in the interval, since this function runs
