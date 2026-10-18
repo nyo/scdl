@@ -959,21 +959,25 @@ const downloadTrack = async (buttonElement) => {
     logger.error(err);
   }
 
-  if (streamData.protocol === "progressive") {
-    await resolveProgressiveBuffer(
-      withClientId(streamData.url),
-      artworkBuffer,
-      resolveData
-    );
-  } else if (isAacHlsFormat(streamData)) {
+  const onProgress = (message, percent) => {
+    showProgressToast(message);
+    setButtonProgress(buttonElement, message, percent);
+  };
+
+  // AAC first: it is HLS too, and its signed playlist URL takes no
+  // client_id, unlike the two mp3 endpoints
+  if (isAacHlsFormat(streamData)) {
     await resolveAacHlsBuffer(
       streamData.url,
       artworkBuffer,
       resolveData,
-      (message, percent) => {
-        showProgressToast(message);
-        setButtonProgress(buttonElement, message, percent);
-      }
+      onProgress
+    );
+  } else if (streamData.protocol === "progressive") {
+    await resolveProgressiveBuffer(
+      withClientId(streamData.url),
+      artworkBuffer,
+      resolveData
     );
   } else if (streamData.protocol === "hls") {
     await resolveHlsBuffer(
