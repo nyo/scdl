@@ -30,6 +30,11 @@ const logger = {
   error: console.error.bind(console, SCDL_LOG_PREFIX, `(${getFrameLabel()})`),
 };
 
+/**
+ * Where to report a failed download.
+ */
+const ISSUES_URL = "https://github.com/nyo/scdl/issues";
+
 const sanitizeFilename = (filename) => {
   return filename
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
@@ -1034,7 +1039,10 @@ const attachDownloadClickHandler = (button) => {
       window.SCDL__DOWNLOADING_BUTTON = null;
 
       if (error) {
-        logger.error(error);
+        logger.error(
+          error,
+          `Please report this at ${ISSUES_URL}, with the track's link.`
+        );
         showDownloadErrorFeedback(button, error.message);
       } else {
         hideProgressToast();
