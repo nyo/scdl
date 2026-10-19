@@ -1,2 +1,3 @@
 scdl*.zip
 .DS_Store
+wasm/build/

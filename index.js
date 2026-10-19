@@ -35,6 +35,13 @@ const logger = {
  */
 const ISSUES_URL = "https://github.com/nyo/scdl/issues";
 
+/**
+ * Removes the characters `< > : " / \ | ?` and `*`, and the control
+ * characters, from a file name. Each run of white space becomes one space,
+ * and the ends are trimmed.
+ * @param {string} filename
+ * @returns {string}
+ */
 const sanitizeFilename = (filename) => {
   return filename
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
@@ -271,14 +278,20 @@ const MP3_ENCODE_BITRATE_KBPS = 320;
  * What the "Encoder" tag of a converted track says: the encoder, and
  * where the audio came from.
  */
-const MP3_ENCODER_TAG = "lamejs 1.2.1, from SoundCloud AAC";
+const MP3_ENCODER_TAG = "LAME 3.100, from SoundCloud AAC";
 
 /**
  * Samples per channel handed to the mp3 encoder per call, 16 mp3
  * frames of 1152 samples. The page runs between calls, so this sets how
- * long it stays blocked: about 10 ms per call.
+ * long it stays blocked: about 3 ms per call.
  */
 const MP3_ENCODE_CHUNK_SAMPLES = 1152 * 16;
+
+/**
+ * Bytes the mp3 encoder may write per call: the worst case lame.h
+ * documents for a chunk, 1.25 bytes per sample plus 7200.
+ */
+const MP3_ENCODE_OUT_BYTES = 1.25 * MP3_ENCODE_CHUNK_SAMPLES + 7200;
 
 /**
  * Lets the page handle its pending events before going on. Not a
@@ -299,79 +312,115 @@ const yieldToPage = () =>
   });
 
 /**
- * Encodes decoded audio to mp3 with lamejs, one chunk at a time.
+ * The mp3 encoder's module, loaded on the first conversion and kept.
+ * `createLame` is the global that libs/lame-wasm.js defines: LAME compiled
+ * to WebAssembly, with the setup function of wasm/lame-bridge.c.
+ */
+let lamePromise = null;
+
+/**
+ * Loads the mp3 encoder's module, or gives back the one already loaded.
+ * @returns {Promise<any>}
+ */
+const loadLame = () => (lamePromise ??= createLame());
+
+/**
+ * Encodes decoded audio to mp3 with LAME, one chunk at a time.
  *
  * Samples are copied out a chunk at a time with copyFromChannel, rather
  * than read element by element from the page's own array through
- * getChannelData.
+ * getChannelData. They go straight into the encoder's memory, as floats
+ * from -1 to 1.
  * @param {AudioBuffer} audioBuffer
  * @param {(ratio: number) => void} onProgress
  * @returns {Promise<ArrayBuffer>}
  */
 const encodeMp3 = async (audioBuffer, onProgress) => {
+  const lame = await loadLame();
   // mp3 holds one or two channels: a mono track stays mono, anything
   // wider keeps its first two
   const channelCount = Math.min(audioBuffer.numberOfChannels, 2);
   // the encoder, set to the track's sample rate and the target bitrate
-  const encoder = new lamejs.Mp3Encoder(
+  const encoder = lame._scdl_lame_init(
     channelCount,
     audioBuffer.sampleRate,
     MP3_ENCODE_BITRATE_KBPS
   );
-  // buffers reused for every chunk: one for the samples copied out of
-  // the decoded audio, as floats from -1 to 1, and one per channel for
-  // the same samples as the 16-bit integers lamejs takes
-  const floatChunk = new Float32Array(MP3_ENCODE_CHUNK_SAMPLES);
-  const pcmChunks = Array.from(
-    { length: channelCount },
-    () => new Int16Array(MP3_ENCODE_CHUNK_SAMPLES)
+
+  if (!encoder) {
+    throw new Error("The mp3 encoder refused this track's settings.");
+  }
+
+  // buffers in the encoder's memory, reused for every chunk: one per
+  // channel for the samples going in, and one for the mp3 bytes coming
+  // out
+  const channelPtrs = Array.from({ length: channelCount }, () =>
+    lame._malloc(MP3_ENCODE_CHUNK_SAMPLES * 4)
   );
+  const outPtr = lame._malloc(MP3_ENCODE_OUT_BYTES);
   // the mp3 bytes, in the order the encoder hands them back
   const mp3Parts = [];
 
-  // one chunk at a time, from the start of the track
-  for (
-    let offset = 0;
-    offset < audioBuffer.length;
-    offset += MP3_ENCODE_CHUNK_SAMPLES
-  ) {
-    // every chunk is full except usually the last one: the views cover
-    // just this chunk's samples
-    const size = Math.min(
-      MP3_ENCODE_CHUNK_SAMPLES,
-      audioBuffer.length - offset
-    );
-    const samples = floatChunk.subarray(0, size);
-    const pcm = pcmChunks.map((chunk) => chunk.subarray(0, size));
+  // a view of the floats at an address of the encoder's memory. Taken
+  // again at each use: the memory is replaced when it grows
+  const floatsAt = (ptr, size) =>
+    lame.HEAPF32.subarray(ptr >>> 2, (ptr >>> 2) + size);
 
-    // for each channel, copy this chunk's samples, then convert them
-    for (let channel = 0; channel < channelCount; channel++) {
-      const channelPcm = pcm[channel];
-
-      audioBuffer.copyFromChannel(samples, channel, offset);
-
-      // float to 16-bit integer: -1..1 becomes -32767..32767. A sample
-      // past -1 or 1 is clamped first, so it can't wrap around
-      for (let i = 0; i < size; i++) {
-        const sample = samples[i];
-
-        channelPcm[i] = (sample < -1 ? -1 : sample > 1 ? 1 : sample) * 0x7fff;
-      }
+  // keeps the mp3 bytes the encoder just wrote, or throws on its error
+  const takeOutput = (byteCount) => {
+    if (byteCount < 0) {
+      throw new Error(`The mp3 encoder failed (code ${byteCount}).`);
     }
 
-    // encode the chunk. lamejs can return fewer bytes than expected, or
-    // none: it holds samples back until it has whole mp3 frames
-    mp3Parts.push(encoder.encodeBuffer(...pcm));
+    mp3Parts.push(lame.HEAPU8.slice(outPtr, outPtr + byteCount));
+  };
 
-    onProgress((offset + size) / audioBuffer.length);
+  try {
+    // one chunk at a time, from the start of the track
+    for (
+      let offset = 0;
+      offset < audioBuffer.length;
+      offset += MP3_ENCODE_CHUNK_SAMPLES
+    ) {
+      // every chunk is full except usually the last one: the views cover
+      // just this chunk's samples
+      const size = Math.min(
+        MP3_ENCODE_CHUNK_SAMPLES,
+        audioBuffer.length - offset
+      );
 
-    // let the page handle clicks, scrolling and playback before the
-    // next chunk
-    await yieldToPage();
+      channelPtrs.forEach((ptr, channel) =>
+        audioBuffer.copyFromChannel(floatsAt(ptr, size), channel, offset)
+      );
+
+      // encode the chunk. The right channel is left out (address 0) for a
+      // mono track. LAME can return fewer bytes than expected, or none: it
+      // holds samples back until it has whole mp3 frames
+      takeOutput(
+        lame._lame_encode_buffer_ieee_float(
+          encoder,
+          channelPtrs[0],
+          channelPtrs[1] ?? 0,
+          size,
+          outPtr,
+          MP3_ENCODE_OUT_BYTES
+        )
+      );
+
+      onProgress((offset + size) / audioBuffer.length);
+
+      // let the page handle clicks, scrolling and playback before the
+      // next chunk
+      await yieldToPage();
+    }
+
+    // write out the samples the encoder still holds: the end of the track
+    takeOutput(lame._lame_encode_flush(encoder, outPtr, MP3_ENCODE_OUT_BYTES));
+  } finally {
+    lame._lame_close(encoder);
+    channelPtrs.forEach((ptr) => lame._free(ptr));
+    lame._free(outPtr);
   }
-
-  // write out the samples the encoder still holds: the end of the track
-  mp3Parts.push(encoder.flush());
 
   // join the parts into one mp3 file
   return new Blob(mp3Parts).arrayBuffer();

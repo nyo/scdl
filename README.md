@@ -45,7 +45,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 | `COMM` | the track description            |
 | `WOAS` | the track's SoundCloud url       |
 | `APIC` | artwork at 500x500, when the track has one |
-| `TXXX` | "Encoder": lamejs 1.2.1, from SoundCloud AAC, when the add-on converted the track |
+| `TXXX` | "Encoder": LAME 3.100, from SoundCloud AAC, when the add-on converted the track |
 
 </details>
 
@@ -54,19 +54,19 @@ https://addons.mozilla.org/firefox/addon/scdl
 The file is built in your browser, straight from SoundCloud. Nothing goes through any other server.
 The add-on only asks for access to `soundcloud.com` and `sndcdn.com` (SoundCloud's CDN), and for storage to keep your filename format.
 
-No background process, ~85 KB.
+No background process, ~130 KB.
 
-SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [lamejs](https://github.com/zhuker/lamejs); a box in the bottom right corner shows the progress.
+SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [LAME](https://lame.sourceforge.io) compiled to WebAssembly; a box in the bottom right corner shows the progress.
 
 Measured in Firefox on a MacBook Pro M5 Pro:
 
 | Track length | Time |
 | ------------ | ---- |
-| 1 min        | 2 s  |
-| 4 min        | 7 s  |
-| 10 min       | 16 s |
-| 30 min       | 48 s |
-| 60 min       | 90 s |
+| 1 min        | ~1 s  |
+| 4 min        | ~2 s  |
+| 10 min       | ~3 s  |
+| 30 min       | ~16 s |
+| 60 min       | ~32 s |
 
 ## Known limits
 
@@ -86,8 +86,18 @@ To build the add-on locally, run:
 bash build.sh # creates a `scdl-{version}.zip` file
 ```
 
+### Rebuilding the mp3 encoder
+
+`libs/lame-wasm.js` is [LAME](https://lame.sourceforge.io) 3.100 compiled to WebAssembly. To rebuild it from LAME's source archive, with Docker running:
+
+```bash
+bash wasm/build.sh # rewrites `libs/lame-wasm.js`
+```
+
+CI runs the same script and fails if the file changes. Versions, checksums and details are in [wasm/README.md](wasm/README.md).
+
 ### External libraries
 
 - [browser-id3-writer](https://github.com/egoroof/browser-id3-writer) 4.4.0 (MIT) for mp3s tagging
 - [FileSaver.js](https://github.com/eligrey/FileSaver.js) 2.0.4 (MIT) for saving files client-side
-- [lamejs](https://github.com/zhuker/lamejs) 1.2.1 (LGPL-3.0), a JavaScript rewrite of [LAME](https://lame.sourceforge.io), for encoding mp3s
+- [LAME](https://lame.sourceforge.io) 3.100 (LGPL), compiled to WebAssembly by `wasm/build.sh` with [Emscripten](https://emscripten.org) 6.0.12, for encoding mp3s
