@@ -7,8 +7,19 @@ window.SCDL__NB_MUI_MENU_BUTTONS = 0;
 window.SCDL__DOM_ELEMENTS = [];
 window.SCDL__TOAST_ELEMENT = null;
 window.SCDL__TOAST_TIMEOUT = null;
-window.SCDL__TOAST_NOTICE_TIMEOUT = null;
-window.SCDL__DOWNLOADING_BUTTON = null;
+
+/**
+ * How many tracks are downloaded, decoded and encoded at once. Every
+ * click is kept, but only this many run together: each AAC track is
+ * decoded to a large AudioBuffer and encoded in memory, so letting a
+ * whole playlist run at once can exhaust the tab's memory.
+ */
+const MAX_PARALLEL_DOWNLOADS = 2;
+
+/** @type {Array<{button: HTMLElement, trackURL: string}>} */
+const downloadQueue = [];
+/** @type {Set<{button: HTMLElement, trackURL: string}>} */
+const activeDownloadJobs = new Set();
 
 /**
  * Returns the label of the frame this code runs in: "top frame" or
@@ -84,6 +95,49 @@ const watchNewTracksInterval = setInterval(() => {
 window.addEventListener("beforeunload", () => {
   clearInterval(watchNewTracksInterval);
 });
+
+/**
+ * Message the content script sends the background page to save a file.
+ * The background page creates the blob URL and calls the downloads API,
+ * since that API isn't available to content scripts.
+ */
+const DOWNLOAD_MESSAGE_TYPE = "scdl-download-track";
+
+/**
+ * Hands a finished track to the background page, which saves it with
+ * the downloads API. Unlike clicking a blob link from the page, this
+ * path is allowed to save several files while other downloads are
+ * already running, which is what makes parallel downloads possible.
+ *
+ * Falls back to FileSaver if the background handoff fails, so a single
+ * download still works even if the background page can't be reached.
+ * @param {Blob} blob
+ * @param {string} filename
+ */
+const saveTrackBlob = async (blob, filename) => {
+  let response;
+
+  try {
+    response = await browser.runtime.sendMessage({
+      type: DOWNLOAD_MESSAGE_TYPE,
+      blob,
+      filename,
+    });
+  } catch (err) {
+    logger.error(
+      "The background page couldn't save the track, falling back to saveAs.",
+      err
+    );
+    saveAs(blob, filename);
+    return;
+  }
+
+  if (response?.id === undefined) {
+    throw new Error(
+      response?.error || "The background page didn't confirm the download."
+    );
+  }
+};
 
 /**
  * Writes the metadata into the track buffer as ID3v2.3 tags, then saves
@@ -191,7 +245,7 @@ const tagAndSaveTrack = async (
 
   filename = sanitizeFilename(filename) || "untitled";
 
-  saveAs(writer.getBlob(), `${filename}.mp3`);
+  await saveTrackBlob(writer.getBlob(), `${filename}.mp3`);
 };
 
 /**
@@ -719,7 +773,7 @@ const getTrackURL = (buttonElement) => {
 const COLORS = {
   text: "#fff",
   error: "#ff0000",
-  notice: "#ff6b6b",
+  status: "#b3b3b3",
   progressBackground: "#333",
   progressDone: "#16a34a",
   // the MUI download button, cloned from a transparent menu button:
@@ -768,7 +822,7 @@ const getToastElement = () => {
   noticeElement.style.display = "none";
   noticeElement.style.marginTop = "4px";
   noticeElement.style.fontSize = "12px";
-  noticeElement.style.color = COLORS.notice;
+  noticeElement.style.color = COLORS.status;
 
   toast.append(messageElement, noticeElement);
   toast._scdlMessageElement = messageElement;
@@ -818,6 +872,31 @@ const showProgressToast = (message) => {
 };
 
 /**
+ * Puts the number of running and waiting downloads under the progress
+ * message. The message itself keeps showing whichever job reported
+ * progress last, so the counts are what tell the user that every click
+ * was kept.
+ */
+const updateDownloadStatusToast = () => {
+  const toast = window.SCDL__TOAST_ELEMENT;
+
+  if (!toast?._scdlIsProgress) return;
+
+  const activeCount = activeDownloadJobs.size;
+  const queuedCount = downloadQueue.length;
+
+  if (activeCount + queuedCount <= 1) {
+    hideToastNotice();
+    return;
+  }
+
+  const notice = toast._scdlNoticeElement;
+
+  notice.textContent = `${activeCount} downloading, ${queuedCount} queued`;
+  notice.style.display = "block";
+};
+
+/**
  * Hides the shared toast if it shows a progress message. An error shown
  * since stays up for its own 3 seconds.
  */
@@ -832,35 +911,10 @@ const hideProgressToast = () => {
 };
 
 /**
- * Shows a notice under the progress message for 3 seconds. The progress
- * message is rewritten several times a second, so a notice in its place
- * would be overwritten at once.
- *
- * Does nothing when no progress message is showing: there is no line
- * to put the notice under.
- * @param {string} message
- */
-const showToastNotice = (message) => {
-  const toast = window.SCDL__TOAST_ELEMENT;
-
-  if (!toast?._scdlIsProgress) return;
-
-  const notice = toast._scdlNoticeElement;
-
-  notice.textContent = message;
-  notice.style.display = "block";
-
-  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
-  window.SCDL__TOAST_NOTICE_TIMEOUT = setTimeout(hideToastNotice, 3000);
-};
-
-/**
  * Hides the notice under the toast's message, if one is showing.
  */
 const hideToastNotice = () => {
   const notice = window.SCDL__TOAST_ELEMENT?._scdlNoticeElement;
-
-  clearTimeout(window.SCDL__TOAST_NOTICE_TIMEOUT);
 
   if (notice) {
     notice.style.display = "none";
@@ -933,8 +987,8 @@ const fadeButtonTo = (button, colors) => {
 
 /**
  * Turns a download button red, then fades it back to its own colors: its
- * click was refused because another track is downloading. A new click
- * during the fade starts it again.
+ * click was refused because the track is already downloading or queued.
+ * A new click during the fade starts it again.
  * @param {HTMLElement} button
  */
 const flashRefusedButton = (button) => {
@@ -1060,13 +1114,13 @@ const withClientId = (url) => {
 };
 
 /**
- * Gets the track URL, resolves its metadata, tags it and saves it as an
- * mp3 file.
- * @param {HTMLElement} buttonElement
+ * Resolves a track's metadata, tags it and saves it as an mp3 file.
+ * The URL is captured when the button is clicked, so a queued download
+ * still points at its track after the page has moved on.
+ * @param {string} trackURL
  * @param {(message: string, percent?: number) => void} onProgress
  */
-const downloadTrack = async (buttonElement, onProgress) => {
-  const trackURL = getTrackURL(buttonElement);
+const downloadTrack = async (trackURL, onProgress) => {
   const resolveData = await resolveTrack(trackURL);
   const streamData = await fetchStreamData(resolveData?.media?.transcodings);
 
@@ -1106,33 +1160,102 @@ const downloadTrack = async (buttonElement, onProgress) => {
 };
 
 /**
- * Wires up a download button's click handler: runs `downloadTrack`, and
- * on failure logs the error and flashes the button red. Shared by the classic
- * and MUI insertion paths.
+ * Runs one download job to completion, then frees its slot and starts
+ * the next queued job. Every job keeps its own progress callback, so
+ * two downloads never write their progress over each other's button.
+ * @param {{button: HTMLElement, trackURL: string}} job
+ */
+const startDownloadJob = async (job) => {
+  activeDownloadJobs.add(job);
+
+  const { button, trackURL } = job;
+
+  // every progress message goes to the shared toast and this job's button
+  const onProgress = (message, percent) => {
+    showProgressToast(message);
+    setButtonProgress(button, message, percent);
+    updateDownloadStatusToast();
+  };
+
+  let error = null;
+
+  try {
+    onProgress("Downloading track…", 0);
+
+    await downloadTrack(trackURL, onProgress);
+  } catch (err) {
+    error = err;
+  }
+
+  // whatever the outcome: the slot is free, the button gets its own
+  // look back before any error feedback reads it, and the next click on
+  // it starts a new job
+  activeDownloadJobs.delete(job);
+
+  if (button._scdlDownloadJob === job) {
+    button._scdlDownloadJob = null;
+  }
+
+  clearButtonProgress(button);
+
+  if (error) {
+    logger.error(
+      error,
+      `Please report this at ${ISSUES_URL}, with the track's link.`
+    );
+    showDownloadErrorFeedback(button, error.message);
+  }
+
+  drainDownloadQueue();
+
+  if (!error && !activeDownloadJobs.size && !downloadQueue.length) {
+    hideProgressToast();
+  }
+};
+
+/**
+ * Starts queued jobs while there is room for them. Every click is kept:
+ * the queue drains automatically as running jobs finish.
+ */
+const drainDownloadQueue = () => {
+  while (
+    activeDownloadJobs.size < MAX_PARALLEL_DOWNLOADS &&
+    downloadQueue.length
+  ) {
+    startDownloadJob(downloadQueue.shift());
+  }
+
+  updateDownloadStatusToast();
+};
+
+/**
+ * Refuses a click on a track that is already downloading or waiting.
+ * The track's button flashes red, and the toast explains why.
+ * @param {HTMLElement} button
+ */
+const refuseDuplicateDownload = (button) => {
+  flashRefusedButton(button);
+  showProgressToast("This track is already downloading or queued.");
+  updateDownloadStatusToast();
+};
+
+/**
+ * Wires up a download button's click handler: captures the track URL
+ * and adds the track to the parallel download queue. Shared by the
+ * classic and MUI insertion paths.
  *
- * One download runs at a time, per frame (every frame runs its own copy
- * of this script). While one runs, a click on another track's button
- * flashes it red and puts a notice under the progress; a click on the
- * downloading track's button does nothing. Two downloads at once would
- * write their progress over each other in the one toast, and Firefox
- * cancels a download when the site already started one without a
- * recent click (IsDownloadSpam in nsExternalHelperAppService.cpp),
- * which is our case: the file is saved long after the click, once
- * converted.
+ * Every click is accepted, up to several running jobs; the rest wait in
+ * order and start as slots free up. The URL is captured now, rather than
+ * when the job starts, because the page can rerender or navigate while
+ * a queued job waits.
  * @param {HTMLElement} button
  */
 const attachDownloadClickHandler = (button) => {
   button.addEventListener(
     "click",
-    async () => {
-      const downloadingButton = window.SCDL__DOWNLOADING_BUTTON;
-
-      if (downloadingButton) {
-        if (downloadingButton !== button) {
-          flashRefusedButton(button);
-          showToastNotice("Another download is in progress.");
-        }
-
+    () => {
+      if (button._scdlDownloadJob) {
+        refuseDuplicateDownload(button);
         return;
       }
 
@@ -1141,41 +1264,37 @@ const attachDownloadClickHandler = (button) => {
       clearRefusedFlash(button);
       clearDownloadErrorFeedback(button);
 
-      window.SCDL__DOWNLOADING_BUTTON = button;
-
-      // every progress message goes to the toast and to the button
-      const onProgress = (message, percent) => {
-        showProgressToast(message);
-        setButtonProgress(button, message, percent);
-      };
-
-      let error = null;
+      let trackURL;
 
       try {
-        // shown at once, before the SoundCloud API calls, so the click
-        // gets an answer and a second click has a line to put its notice
-        // under
-        onProgress("Downloading track…", 0);
-
-        await downloadTrack(button, onProgress);
+        trackURL = getTrackURL(button);
       } catch (err) {
-        error = err;
+        logger.error(err);
+        showDownloadErrorFeedback(button, err.message);
+        return;
       }
 
-      // whatever the outcome: the next click goes through, and the
-      // button gets its own look back before any error feedback reads it
-      window.SCDL__DOWNLOADING_BUTTON = null;
-      clearButtonProgress(button);
+      // the same track can have two buttons (the wide and narrow MUI
+      // layouts); clicking both must not save it twice
+      const pendingJob = [...activeDownloadJobs, ...downloadQueue].find(
+        (job) => job.trackURL === trackURL
+      );
 
-      if (error) {
-        logger.error(
-          error,
-          `Please report this at ${ISSUES_URL}, with the track's link.`
-        );
-        showDownloadErrorFeedback(button, error.message);
-      } else {
-        hideProgressToast();
+      if (pendingJob) {
+        refuseDuplicateDownload(button);
+        return;
       }
+
+      const job = { button, trackURL };
+
+      button._scdlDownloadJob = job;
+      downloadQueue.push(job);
+
+      setButtonProgress(button, "Queued…", 0);
+      showProgressToast("Download queued.");
+      updateDownloadStatusToast();
+
+      drainDownloadQueue();
     },
     true
   );

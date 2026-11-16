@@ -29,6 +29,7 @@ https://addons.mozilla.org/firefox/addon/scdl
 
 - ✅ Tagged mp3, artwork included
 - ✅ A button on every track: track page, playlists, likes, search results
+- ✅ Click several tracks: up to two tracks download at once, the rest wait in a queue
 - ✅ Works on private tracks opened through their secret link
 - ✅ Custom file name format (Preferences tab in `about:addons`)
 
@@ -52,9 +53,9 @@ https://addons.mozilla.org/firefox/addon/scdl
 ## How it works
 
 The file is built in your browser, straight from SoundCloud. Nothing goes through any other server.
-The add-on only asks for access to `soundcloud.com` and `sndcdn.com` (SoundCloud's CDN), and for storage to keep your filename format.
+The add-on asks for access to `soundcloud.com` and `sndcdn.com` (SoundCloud's CDN), storage to keep your filename format, and the downloads permission to save finished files through Firefox's download manager.
 
-No background process, ~130 KB.
+No persistent background process, ~130 KB.
 
 SoundCloud now serves most tracks only as AAC. The add-on then decodes the AAC with your browser's own decoder and encodes it to mp3 with [LAME](https://lame.sourceforge.io) compiled to WebAssembly; a box in the bottom right corner shows the progress.
 
@@ -70,7 +71,7 @@ Measured in Firefox on a MacBook Pro M5 Pro:
 
 ## Known limits
 
-- One track at a time: no bulk download of a playlist or album.
+- Up to two tracks are converted at once: more clicked tracks wait in a queue, to keep the tab's memory use bounded.
 - Since May 2026, SoundCloud locks some tracks behind DRM: no extension can download those, and the add-on says so instead of saving a broken file.
 - Since October 2026, SoundCloud no longer serves mp3 for most tracks and streams AAC at 160 kbps instead. The add-on encodes it to mp3 at 320 kbps to lose as little as possible in the second encoding.
 
