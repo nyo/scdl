@@ -5,7 +5,7 @@ build_name="scdl-$version.zip"
 
 rm -f "$build_name"
 
-if ! zip -r "$build_name" icons/ libs/ index.js shared.js manifest.json options.html options.js; then
+if ! zip -r "$build_name" icons/ libs/ background.js index.js shared.js manifest.json options.html options.js; then
     echo "Error: Failed to create archive: $build_name"
     exit 1
 fi

@@ -21,8 +21,13 @@
   "permissions": [
     "*://*.soundcloud.com/*",
     "*://*.sndcdn.com/*",
+    "downloads",
     "storage"
   ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
   "options_ui": {
     "page": "options.html"
   },

@@ -16,6 +16,7 @@ jobs:
 
       - name: Check that the scripts parse
         run: |
+          node --check background.js
           node --check index.js
           node --check shared.js
           node --check options.js
